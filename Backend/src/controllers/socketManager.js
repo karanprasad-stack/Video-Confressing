@@ -1,7 +1,7 @@
 import { Server } from "socket.io"
 
 
-let connections = {}
+export let connections = {}
 let messages = {}
 let timeOnline = {}
 

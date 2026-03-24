@@ -9,6 +9,10 @@ import { connectToSocket } from "./src/controllers/socketManager.js";
 import cors from "cors";
 import userRoutes from "./src/routes/user.routes.js"
 
+import dotenv from "dotenv";
+import { connections } from "./src/controllers/socketManager.js";
+dotenv.config();
+
 const app = express();
 const server = createServer(app);
 const io = connectToSocket(server);
@@ -20,15 +24,28 @@ app.use(express.urlencoded({ limit: "40kb", extended: true }))
 
 app.use("/api/v1/users", userRoutes);
 
+// Meeting Validation Endpoint
+
+app.get("/api/v1/meetings/:meetingCode", (req, res) => {
+    const { meetingCode } = req.params;
+
+    // Check if the meeting code exists in connections and has active participants
+    if (connections[meetingCode] && connections[meetingCode].length > 0) {
+        return res.status(200).json({ active: true });
+    } else {
+        return res.status(404).json({ active: false, message: "Meeting not found or inactive" });
+    }
+});
+
 const start = async () => {
 
     app.set("mongo_user")
-        const connectionDb = await mongoose.connect("mongodb+srv://karanprasad7654_db_user:E21pb1130140@cluster0.ysv0fez.mongodb.net/")
-        console.log(`MONGO Connected DB Host: ${connectionDb.connection.host}`)
+    const connectionDb = await mongoose.connect(process.env.MONGO_URI)
+    console.log(`MONGO Connected DB Host: ${connectionDb.connection.host}`)
 
     server.listen(app.get("port"), () => {
         console.log("LISTENING on port 8000")
-      });
+    });
 }
 
 start();
