@@ -189,46 +189,54 @@ export default function VideoMeetComponent() {
 
     const getPermissions = async () => {
         try {
-            const videoPermission = await navigator.mediaDevices.getUserMedia({ video: true });
-            if (videoPermission) {
-                setVideoAvailable(true);
-                console.log('Video permission granted');
-            } else {
+            const userMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            setVideoAvailable(true);
+            setAudioAvailable(true);
+            window.localStream = userMediaStream;
+            if (localVideoref.current) {
+                localVideoref.current.srcObject = userMediaStream;
+            }
+            getDevices();
+        } catch (error) {
+            console.log("Failed to get both video and audio. Falling back...", error);
+            try {
+                // Try audio only
+                const audioOnlyStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 setVideoAvailable(false);
-                console.log('Video permission denied');
-            }
-
-            const audioPermission = await navigator.mediaDevices.getUserMedia({ audio: true });
-            if (audioPermission) {
                 setAudioAvailable(true);
-                console.log('Audio permission granted');
-            } else {
-                setAudioAvailable(false);
-                console.log('Audio permission denied');
-            }
-
-            if (navigator.mediaDevices.getDisplayMedia) {
-                setScreenAvailable(true);
-            } else {
-                setScreenAvailable(false);
-            }
-
-            if (videoAvailable || audioAvailable) {
-                let videoConstraint = videoAvailable;
-                if (videoAvailable && selectedVideoDevice) {
-                    videoConstraint = { deviceId: { exact: selectedVideoDevice } };
+                window.localStream = audioOnlyStream;
+                if (localVideoref.current) {
+                    localVideoref.current.srcObject = audioOnlyStream;
                 }
-                const userMediaStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraint, audio: audioAvailable });
-                if (userMediaStream) {
-                    window.localStream = userMediaStream;
+                getDevices();
+            } catch (err2) {
+                console.log("Failed to get audio. Trying video only...", err2);
+                try {
+                    // Try video only
+                    let videoConstraint = true;
+                    if (selectedVideoDevice) {
+                        videoConstraint = { deviceId: { exact: selectedVideoDevice } };
+                    }
+                    const videoOnlyStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraint });
+                    setVideoAvailable(true);
+                    setAudioAvailable(false);
+                    window.localStream = videoOnlyStream;
                     if (localVideoref.current) {
-                        localVideoref.current.srcObject = userMediaStream;
+                        localVideoref.current.srcObject = videoOnlyStream;
                     }
                     getDevices();
+                } catch (err3) {
+                    console.log("Failed to get any media devices", err3);
+                    setVideoAvailable(false);
+                    setAudioAvailable(false);
                 }
             }
-        } catch (error) {
-            console.log(error);
+        }
+
+        if (navigator.mediaDevices.getDisplayMedia) {
+            setScreenAvailable(true);
+        } else {
+            setScreenAvailable(false);
         }
     };
 
@@ -460,14 +468,19 @@ export default function VideoMeetComponent() {
         setCameraMenuAnchor(null);
         if (video) {
             let videoConstraint = { deviceId: { exact: deviceId } };
-            navigator.mediaDevices.getUserMedia({ video: videoConstraint, audio: true })
+            navigator.mediaDevices.getUserMedia({ video: videoConstraint, audio: audioAvailable ? true : false })
                 .then((stream) => {
                     if (!audio) {
                         stream.getAudioTracks().forEach(track => track.enabled = false);
                     }
                     getUserMediaSuccess(stream);
                 })
-                .catch((e) => console.log(e));
+                .catch((e) => {
+                    console.log("Failed requesting both, fallback to video only", e);
+                    navigator.mediaDevices.getUserMedia({ video: videoConstraint })
+                        .then((stream) => getUserMediaSuccess(stream))
+                        .catch(err => console.log(err));
+                });
         }
     };
 
@@ -484,12 +497,11 @@ export default function VideoMeetComponent() {
             }
         } else {
             // Turning ON: Request new stream
-            // ALWAYS request audio so we have the track available (even if muted)
             let videoConstraint = true;
             if (selectedVideoDevice) {
                 videoConstraint = { deviceId: { exact: selectedVideoDevice } };
             }
-            navigator.mediaDevices.getUserMedia({ video: videoConstraint, audio: true })
+            navigator.mediaDevices.getUserMedia({ video: videoConstraint, audio: audioAvailable ? true : false })
                 .then((stream) => {
                     // Apply current audio mute state to the new track
                     if (!audio) {
@@ -497,7 +509,12 @@ export default function VideoMeetComponent() {
                     }
                     getUserMediaSuccess(stream);
                 })
-                .catch((e) => console.log(e));
+                .catch((e) => {
+                     console.log("Failed requesting both, fallback to video only", e);
+                     navigator.mediaDevices.getUserMedia({ video: videoConstraint })
+                        .then((stream) => getUserMediaSuccess(stream))
+                        .catch(err => console.log(err));
+                });
         }
     }
 
