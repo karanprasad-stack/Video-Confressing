@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import io from "socket.io-client";
-import { Badge, IconButton, TextField, Box, Paper, Typography, Avatar, CssBaseline, Grid, Drawer, Divider, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Menu, MenuItem, Tooltip } from '@mui/material';
+import { Badge, IconButton, TextField, Box, Paper, Typography, Avatar, CssBaseline, Grid, Drawer, Divider, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Menu, MenuItem, Tooltip, Slider, FormControl, InputLabel, Select } from '@mui/material';
 import { Button } from '@mui/material';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff'
@@ -14,6 +14,8 @@ import ChatIcon from '@mui/icons-material/Chat'
 import CloseIcon from '@mui/icons-material/Close';
 import SendIcon from '@mui/icons-material/Send';
 import SettingsIcon from '@mui/icons-material/Settings';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import server from '../environment'
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
@@ -30,6 +32,96 @@ const peerConfigConnections = {
         { "urls": "stun:stun.l.google.com:19302" }
     ]
 }
+
+const RemoteVideo = ({ video, totalVideos, audioOutputDevice }) => {
+    const videoRef = useRef(null);
+    const [volume, setVolume] = useState(1);
+    const [isMuted, setIsMuted] = useState(false);
+
+    useEffect(() => {
+        if (videoRef.current && typeof videoRef.current.setSinkId === 'function' && audioOutputDevice) {
+            videoRef.current.setSinkId(audioOutputDevice)
+                .catch(error => console.error("Error setting audio output device:", error));
+        }
+    }, [audioOutputDevice]);
+
+    useEffect(() => {
+        if (videoRef.current && video.stream) {
+            if (videoRef.current.srcObject !== video.stream) {
+                videoRef.current.srcObject = video.stream;
+            }
+        }
+    }, [video.stream]);
+
+    useEffect(() => {
+        if (videoRef.current) {
+            videoRef.current.volume = volume;
+            videoRef.current.muted = isMuted;
+        }
+    }, [volume, isMuted]);
+
+    return (
+        <Paper elevation={10} sx={{
+            borderRadius: 4,
+            overflow: 'hidden',
+            height: 'auto',
+            width: totalVideos === 1 ? '75vw' : (totalVideos === 2 ? '40vw' : '28vw'),
+            aspectRatio: '16/9',
+            position: 'relative',
+            border: totalVideos === 1 ? '2px solid rgba(255,255,255,0.1)' : '1px solid rgba(255,255,255,0.1)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1)',
+            backgroundColor: 'black',
+            '&:hover .video-controls': { opacity: 1 }
+        }}>
+            <video
+                data-socket={video.socketId}
+                ref={videoRef}
+                autoPlay
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            >
+            </video>
+            
+            {/* Hover UI for Volume */}
+            <Box className="video-controls" sx={{
+                position: 'absolute',
+                bottom: 15,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                display: 'flex',
+                alignItems: 'center',
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                padding: '4px 16px',
+                borderRadius: '25px',
+                backdropFilter: 'blur(4px)',
+                opacity: 0,
+                transition: 'opacity 0.3s ease',
+                width: '200px',
+                zIndex: 20
+            }}>
+                <IconButton 
+                    size="small" 
+                    onClick={() => setIsMuted(!isMuted)}
+                    sx={{ color: isMuted || volume === 0 ? '#f44336' : 'white', mr: 1 }}
+                >
+                    {isMuted || volume === 0 ? <VolumeOffIcon fontSize="small"/> : <VolumeUpIcon fontSize="small"/>}
+                </IconButton>
+                <Slider 
+                    size="small"
+                    value={isMuted ? 0 : volume}
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    onChange={(e, val) => {
+                        setVolume(val);
+                        if (val > 0 && isMuted) setIsMuted(false);
+                        if (val === 0 && !isMuted) setIsMuted(true);
+                    }}
+                    sx={{ color: '#ff9839' }}
+                />
+            </Box>
+        </Paper>
+    );
+};
 
 export default function VideoMeetComponent() {
 
@@ -69,7 +161,14 @@ export default function VideoMeetComponent() {
 
     const [videoDevices, setVideoDevices] = useState([]);
     const [selectedVideoDevice, setSelectedVideoDevice] = useState("");
-    const [cameraMenuAnchor, setCameraMenuAnchor] = useState(null);
+    
+    const [audioInputDevices, setAudioInputDevices] = useState([]);
+    const [selectedAudioInputDevice, setSelectedAudioInputDevice] = useState("");
+    
+    const [audioOutputDevices, setAudioOutputDevices] = useState([]);
+    const [selectedAudioOutputDevice, setSelectedAudioOutputDevice] = useState("");
+    
+    const [settingsOpen, setSettingsOpen] = useState(false);
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -79,12 +178,30 @@ export default function VideoMeetComponent() {
         try {
             const devices = await navigator.mediaDevices.enumerateDevices();
             const vDevices = devices.filter(device => device.kind === 'videoinput');
+            const aiDevices = devices.filter(device => device.kind === 'audioinput');
+            const aoDevices = devices.filter(device => device.kind === 'audiooutput');
+
             setVideoDevices(vDevices);
             if (vDevices.length > 0) {
-                // Keep selected device if it still exists, otherwise use first
                 setSelectedVideoDevice(prev => {
                     const exists = vDevices.find(d => d.deviceId === prev);
                     return exists ? prev : vDevices[0].deviceId;
+                });
+            }
+
+            setAudioInputDevices(aiDevices);
+            if (aiDevices.length > 0) {
+                setSelectedAudioInputDevice(prev => {
+                    const exists = aiDevices.find(d => d.deviceId === prev);
+                    return exists ? prev : (aiDevices.find(d => d.deviceId === 'default') || aiDevices[0]).deviceId;
+                });
+            }
+
+            setAudioOutputDevices(aoDevices);
+            if (aoDevices.length > 0) {
+                setSelectedAudioOutputDevice(prev => {
+                    const exists = aoDevices.find(d => d.deviceId === prev);
+                    return exists ? prev : (aoDevices.find(d => d.deviceId === 'default') || aoDevices[0]).deviceId;
                 });
             }
         } catch (error) {
@@ -107,7 +224,7 @@ export default function VideoMeetComponent() {
         getPermissions();
 
         if (location.state && location.state.guestName) {
-            setUsername(location.state.guestName);
+            setUsername(location.state.guestName + " ( guest )");
             setAskForUsername(false);
             getMedia();
         }
@@ -196,6 +313,12 @@ export default function VideoMeetComponent() {
             if (localVideoref.current) {
                 localVideoref.current.srcObject = userMediaStream;
             }
+            if (userMediaStream.getVideoTracks()[0]?.getSettings?.()?.deviceId) {
+                setSelectedVideoDevice(userMediaStream.getVideoTracks()[0].getSettings().deviceId);
+            }
+            if (userMediaStream.getAudioTracks()[0]?.getSettings?.()?.deviceId) {
+                setSelectedAudioInputDevice(userMediaStream.getAudioTracks()[0].getSettings().deviceId);
+            }
             getDevices();
         } catch (error) {
             console.log("Failed to get both video and audio. Falling back...", error);
@@ -207,6 +330,9 @@ export default function VideoMeetComponent() {
                 window.localStream = audioOnlyStream;
                 if (localVideoref.current) {
                     localVideoref.current.srcObject = audioOnlyStream;
+                }
+                if (audioOnlyStream.getAudioTracks()[0]?.getSettings?.()?.deviceId) {
+                    setSelectedAudioInputDevice(audioOnlyStream.getAudioTracks()[0].getSettings().deviceId);
                 }
                 getDevices();
             } catch (err2) {
@@ -224,11 +350,17 @@ export default function VideoMeetComponent() {
                     if (localVideoref.current) {
                         localVideoref.current.srcObject = videoOnlyStream;
                     }
+                    if (videoOnlyStream.getVideoTracks()[0]?.getSettings?.()?.deviceId) {
+                        setSelectedVideoDevice(videoOnlyStream.getVideoTracks()[0].getSettings().deviceId);
+                    }
                     getDevices();
                 } catch (err3) {
                     console.log("Failed to get any media devices", err3);
                     setVideoAvailable(false);
                     setAudioAvailable(false);
+                    if (err3.name === "NotAllowedError" || err3.message.includes("Permission denied")) {
+                        alert("Camera and microphone access was denied. Please allow permissions in your browser settings or operating system to use video and audio.");
+                    }
                 }
             }
         }
@@ -463,25 +595,26 @@ export default function VideoMeetComponent() {
         return Object.assign(stream.getVideoTracks()[0], { enabled: false })
     }
 
-    const handleCameraChange = (deviceId) => {
-        setSelectedVideoDevice(deviceId);
-        setCameraMenuAnchor(null);
-        if (video) {
-            let videoConstraint = { deviceId: { exact: deviceId } };
-            navigator.mediaDevices.getUserMedia({ video: videoConstraint, audio: audioAvailable ? true : false })
-                .then((stream) => {
-                    if (!audio) {
-                        stream.getAudioTracks().forEach(track => track.enabled = false);
-                    }
-                    getUserMediaSuccess(stream);
-                })
-                .catch((e) => {
-                    console.log("Failed requesting both, fallback to video only", e);
-                    navigator.mediaDevices.getUserMedia({ video: videoConstraint })
-                        .then((stream) => getUserMediaSuccess(stream))
-                        .catch(err => console.log(err));
-                });
-        }
+    const applyDeviceChanges = (newVideoId, newAudioId) => {
+        setSelectedVideoDevice(newVideoId);
+        setSelectedAudioInputDevice(newAudioId);
+        
+        let videoConstraint = videoAvailable ? (newVideoId ? { deviceId: { exact: newVideoId } } : true) : false;
+        let audioConstraint = audioAvailable ? (newAudioId ? { deviceId: { exact: newAudioId } } : true) : false;
+        
+        if (!videoConstraint && !audioConstraint) return;
+
+        navigator.mediaDevices.getUserMedia({ video: videoConstraint, audio: audioConstraint })
+            .then((stream) => {
+                 if (!video && videoAvailable) {
+                     stream.getVideoTracks().forEach(track => track.enabled = false);
+                 }
+                 if (!audio && audioAvailable) {
+                     stream.getAudioTracks().forEach(track => track.enabled = false);
+                 }
+                 getUserMediaSuccess(stream);
+            })
+            .catch(e => console.log("Error applying devices", e));
     };
 
     let handleVideo = () => {
@@ -493,6 +626,7 @@ export default function VideoMeetComponent() {
             if (window.localStream && window.localStream.getVideoTracks().length > 0) {
                 window.localStream.getVideoTracks().forEach(track => {
                     track.stop();
+                    window.localStream.removeTrack(track);
                 });
             }
         } else {
@@ -501,19 +635,54 @@ export default function VideoMeetComponent() {
             if (selectedVideoDevice) {
                 videoConstraint = { deviceId: { exact: selectedVideoDevice } };
             }
-            navigator.mediaDevices.getUserMedia({ video: videoConstraint, audio: audioAvailable ? true : false })
+            
+            navigator.mediaDevices.getUserMedia({ video: videoConstraint })
                 .then((stream) => {
-                    // Apply current audio mute state to the new track
-                    if (!audio) {
-                        stream.getAudioTracks().forEach(track => track.enabled = false);
+                    let newVideoTrack = stream.getVideoTracks()[0];
+                    if (window.localStream && window.localStream.getAudioTracks().length > 0) {
+                        window.localStream.getAudioTracks().forEach(track => {
+                            stream.addTrack(track);
+                        });
                     }
-                    getUserMediaSuccess(stream);
+
+                    window.localStream = stream;
+                    if (localVideoref.current) {
+                        localVideoref.current.srcObject = stream;
+                    }
+
+                    for (let id in connections) {
+                        if (id === socketIdRef.current) continue;
+                        let sender = connections[id].getSenders().find(s => s.track && s.track.kind === 'video');
+                        if (sender) {
+                            sender.replaceTrack(newVideoTrack).catch(e => console.log(e));
+                        }
+                    }
                 })
                 .catch((e) => {
-                     console.log("Failed requesting both, fallback to video only", e);
-                     navigator.mediaDevices.getUserMedia({ video: videoConstraint })
-                        .then((stream) => getUserMediaSuccess(stream))
-                        .catch(err => console.log(err));
+                     console.log("Failed requesting video", e);
+                     if (selectedVideoDevice) {
+                         navigator.mediaDevices.getUserMedia({ video: true })
+                            .then((stream) => {
+                                let newVideoTrack = stream.getVideoTracks()[0];
+                                if (window.localStream && window.localStream.getAudioTracks().length > 0) {
+                                    window.localStream.getAudioTracks().forEach(track => {
+                                        stream.addTrack(track);
+                                    });
+                                }
+                                window.localStream = stream;
+                                if (localVideoref.current) {
+                                    localVideoref.current.srcObject = stream;
+                                }
+                                for (let id in connections) {
+                                    if (id === socketIdRef.current) continue;
+                                    let sender = connections[id].getSenders().find(s => s.track && s.track.kind === 'video');
+                                    if (sender) {
+                                        sender.replaceTrack(newVideoTrack).catch(e => console.log(e));
+                                    }
+                                }
+                            })
+                            .catch(err => console.log(err));
+                     }
                 });
         }
     }
@@ -587,6 +756,9 @@ export default function VideoMeetComponent() {
 
     let connect = () => {
         setAskForUsername(false);
+        if (!localStorage.getItem("token")) {
+            setUsername(prev => prev + " ( guest )");
+        }
         getMedia();
     }
 
@@ -721,8 +893,8 @@ export default function VideoMeetComponent() {
                         <Paper elevation={10} sx={{
                             borderRadius: 4,
                             overflow: 'hidden',
-                            height: videos.length === 0 ? '60vh' : (videos.length === 1 ? '180px' : '35vh'),
-                            width: videos.length === 0 ? '60vw' : (videos.length === 1 ? '240px' : '35vw'),
+                            height: videos.length === 0 ? 'auto' : (videos.length === 1 ? '180px' : 'auto'),
+                            width: videos.length === 0 ? '60vw' : (videos.length === 1 ? '240px' : (videos.length === 2 ? '40vw' : '28vw')),
                             aspectRatio: '16/9',
                             position: videos.length === 1 ? 'absolute' : 'relative',
                             bottom: videos.length === 1 ? 40 : 'auto',
@@ -741,31 +913,7 @@ export default function VideoMeetComponent() {
 
                         {/* Remote Videos */}
                         {videos.map((video) => (
-                            <Paper key={video.socketId} elevation={10} sx={{
-                                borderRadius: 4,
-                                overflow: 'hidden',
-                                height: videos.length === 1 ? '65vh' : '35vh',
-                                width: videos.length === 1 ? '75vw' : '35vw',
-                                aspectRatio: videos.length === 1 ? 'auto' : '16/9',
-                                position: 'relative',
-                                border: videos.length === 1 ? '2px solid rgba(255,255,255,0.1)' : '1px solid rgba(255,255,255,0.1)',
-                                boxShadow: '0 20px 50px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1)',
-                                backgroundColor: 'black'
-                            }}>
-                                <video
-                                    data-socket={video.socketId}
-                                    ref={ref => {
-                                        if (ref && video.stream) {
-                                            if (ref.srcObject !== video.stream) {
-                                                ref.srcObject = video.stream;
-                                            }
-                                        }
-                                    }}
-                                    autoPlay
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                                >
-                                </video>
-                            </Paper>
+                            <RemoteVideo key={video.socketId} video={video} totalVideos={videos.length} audioOutputDevice={selectedAudioOutputDevice} />
                         ))}
                     </Box>
 
@@ -796,32 +944,58 @@ export default function VideoMeetComponent() {
                             {screen === true ? <ScreenShareIcon /> : <StopScreenShareIcon />}
                         </IconButton>
 
-                        <IconButton onClick={(e) => setCameraMenuAnchor(e.currentTarget)} sx={{ color: 'white', backgroundColor: 'rgba(255,255,255,0.2)', '&:hover': { backgroundColor: 'rgba(255,255,255,0.3)' } }}>
+                        <IconButton onClick={() => setSettingsOpen(true)} sx={{ color: 'white', backgroundColor: 'rgba(255,255,255,0.2)', '&:hover': { backgroundColor: 'rgba(255,255,255,0.3)' } }}>
                             <SettingsIcon />
                         </IconButton>
-                        <Menu
-                            anchorEl={cameraMenuAnchor}
-                            open={Boolean(cameraMenuAnchor)}
-                            onClose={() => setCameraMenuAnchor(null)}
-                            PaperProps={{
-                                sx: {
-                                    backgroundColor: '#1e293b',
-                                    color: 'white',
-                                    border: '1px solid rgba(255,255,255,0.1)'
-                                }
-                            }}
+
+            {/* Device Settings Dialog */}
+            <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} PaperProps={{ sx: { backgroundColor: '#1e293b', color: 'white', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.1)' } }}>
+                <DialogTitle sx={{ fontWeight: 'bold' }}>Device Settings</DialogTitle>
+                <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: '350px', pt: 2 }}>
+                    
+                    <TextField
+                        select
+                        fullWidth
+                        variant="outlined"
+                        label="Camera"
+                        value={selectedVideoDevice}
+                        onChange={(e) => applyDeviceChanges(e.target.value, selectedAudioInputDevice)}
+                        sx={{ '& .MuiOutlinedInput-root': { color: 'white', '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' } }, '& .MuiInputLabel-root': { color: '#94a3b8', backgroundColor: '#1e293b', px: 0.5 }, '& .MuiSvgIcon-root': { color: 'white' } }}
+                    >
+                        {videoDevices.map(d => <MenuItem key={d.deviceId} value={d.deviceId}>{d.label || `Camera ${videoDevices.indexOf(d) + 1}`}</MenuItem>)}
+                    </TextField>
+
+                    <TextField
+                        select
+                        fullWidth
+                        variant="outlined"
+                        label="Microphone"
+                        value={selectedAudioInputDevice}
+                        onChange={(e) => applyDeviceChanges(selectedVideoDevice, e.target.value)}
+                        sx={{ '& .MuiOutlinedInput-root': { color: 'white', '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' } }, '& .MuiInputLabel-root': { color: '#94a3b8', backgroundColor: '#1e293b', px: 0.5 }, '& .MuiSvgIcon-root': { color: 'white' } }}
+                    >
+                        {audioInputDevices.map(d => <MenuItem key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${audioInputDevices.indexOf(d) + 1}`}</MenuItem>)}
+                    </TextField>
+
+                    {typeof HTMLMediaElement.prototype.setSinkId === 'function' && (
+                        <TextField
+                            select
+                            fullWidth
+                            variant="outlined"
+                            label="Speaker"
+                            value={selectedAudioOutputDevice}
+                            onChange={(e) => setSelectedAudioOutputDevice(e.target.value)}
+                            sx={{ '& .MuiOutlinedInput-root': { color: 'white', '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' } }, '& .MuiInputLabel-root': { color: '#94a3b8', backgroundColor: '#1e293b', px: 0.5 }, '& .MuiSvgIcon-root': { color: 'white' } }}
                         >
-                            {videoDevices.map((device) => (
-                                <MenuItem 
-                                    key={device.deviceId} 
-                                    selected={device.deviceId === selectedVideoDevice} 
-                                    onClick={() => handleCameraChange(device.deviceId)}
-                                    sx={{ '&.Mui-selected': { backgroundColor: '#3b82f6' }, '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' } }}
-                                >
-                                    {device.label || `Camera ${videoDevices.indexOf(device) + 1}`}
-                                </MenuItem>
-                            ))}
-                        </Menu>
+                            {audioOutputDevices.map(d => <MenuItem key={d.deviceId} value={d.deviceId}>{d.label || `Speaker ${audioOutputDevices.indexOf(d) + 1}`}</MenuItem>)}
+                        </TextField>
+                    )}
+
+                </DialogContent>
+                <DialogActions sx={{ padding: '20px' }}>
+                    <Button variant="contained" onClick={() => setSettingsOpen(false)} sx={{ backgroundColor: '#ff9839', color: 'white', '&:hover': { backgroundColor: '#e08933' }, borderRadius: '20px', padding: '6px 20px' }}>Done</Button>
+                </DialogActions>
+            </Dialog>
 
                         <IconButton onClick={handleEndCall} sx={{ color: 'white', backgroundColor: '#f44336', '&:hover': { backgroundColor: '#d32f2f' } }}>
                             <CallEndIcon />
