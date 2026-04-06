@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import io from "socket.io-client";
-import { Badge, IconButton, TextField, Box, Paper, Typography, Avatar, CssBaseline, Grid, Drawer, Divider, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Menu, MenuItem, Tooltip, Slider, FormControl, InputLabel, Select } from '@mui/material';
+import { Badge, IconButton, TextField, Box, Paper, Typography, Avatar, CssBaseline, Grid, Drawer, Divider, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Menu, MenuItem, Tooltip, Slider, FormControl, InputLabel, Select, CircularProgress, Snackbar } from '@mui/material';
 import { Button } from '@mui/material';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff'
@@ -29,11 +29,15 @@ var connections = {};
 
 const peerConfigConnections = {
     "iceServers": [
-        { "urls": "stun:stun.l.google.com:19302" }
+        { "urls": "stun:stun.l.google.com:19302" },
+        { "urls": "stun:stun1.l.google.com:19302" },
+        { "urls": "stun:stun2.l.google.com:19302" },
+        { "urls": "stun:stun3.l.google.com:19302" },
+        { "urls": "stun:stun4.l.google.com:19302" }
     ]
 }
 
-const RemoteVideo = ({ video, totalVideos, audioOutputDevice }) => {
+const RemoteVideo = ({ video, totalVideos, audioOutputDevice, details }) => {
     const videoRef = useRef(null);
     const [volume, setVolume] = useState(1);
     const [isMuted, setIsMuted] = useState(false);
@@ -77,9 +81,31 @@ const RemoteVideo = ({ video, totalVideos, audioOutputDevice }) => {
                 data-socket={video.socketId}
                 ref={videoRef}
                 autoPlay
+                playsInline
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
             >
             </video>
+
+            {details && (
+                <Box sx={{
+                    position: 'absolute',
+                    bottom: 15,
+                    left: 15,
+                    backgroundColor: 'rgba(0,0,0,0.6)',
+                    padding: '4px 12px',
+                    borderRadius: '15px',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 20,
+                    maxWidth: '150px',
+                    textOverflow: 'ellipsis',
+                    overflow: 'hidden',
+                    whiteSpace: 'nowrap'
+                }}>
+                    <Typography variant="subtitle2" sx={{ color: 'white', fontWeight: 'bold' }}>
+                        {details.username} ({details.role})
+                    </Typography>
+                </Box>
+            )}
             
             {/* Hover UI for Volume */}
             <Box className="video-controls" sx={{
@@ -152,6 +178,10 @@ export default function VideoMeetComponent() {
     let [newMessages, setNewMessages] = useState(0);
 
     let [askForUsername, setAskForUsername] = useState(true);
+    let [isWaitingForApproval, setIsWaitingForApproval] = useState(false);
+    let [joinRequests, setJoinRequests] = useState([]);
+    let [peerDetails, setPeerDetails] = useState({});
+    let [myRole, setMyRole] = useState("");
 
     let [username, setUsername] = useState("");
 
@@ -224,7 +254,15 @@ export default function VideoMeetComponent() {
         getPermissions();
 
         if (location.state && location.state.guestName) {
-            setUsername(location.state.guestName + " ( guest )");
+            const hasToken = !!localStorage.getItem("token");
+            const createdMeeting = localStorage.getItem("created_meeting");
+            const isCreator = createdMeeting === url || createdMeeting === `/${url}`;
+            
+            if (!hasToken && !isCreator) {
+                setUsername(location.state.guestName + " ( guest )");
+            } else {
+                setUsername(location.state.guestName);
+            }
             setAskForUsername(false);
             getMedia();
         }
@@ -388,6 +426,11 @@ export default function VideoMeetComponent() {
         }
     }, [askForUsername])
 
+    const handleJoinResponse = (socketId, isApproved) => {
+        socketRef.current.emit('join-response', url, socketId, isApproved);
+        setJoinRequests(prev => prev.filter(req => req.socketId !== socketId));
+    };
+
     let getMedia = () => {
         setVideo(videoAvailable);
         setAudio(audioAvailable);
@@ -477,7 +520,15 @@ export default function VideoMeetComponent() {
             }
 
             if (signal.ice) {
-                connections[fromId].addIceCandidate(new RTCIceCandidate(signal.ice)).catch(e => console.log(e))
+                const candidate = new RTCIceCandidate(signal.ice);
+                const addCandidate = () => {
+                    if (connections[fromId].remoteDescription) {
+                        connections[fromId].addIceCandidate(candidate).catch(e => console.log(e));
+                    } else {
+                        setTimeout(addCandidate, 100); // Retry until remoteDescription is ready
+                    }
+                };
+                addCandidate();
             }
         }
     }
@@ -491,7 +542,44 @@ export default function VideoMeetComponent() {
         socketRef.current.on('signal', gotMessageFromServer)
 
         socketRef.current.on('connect', () => {
-            socketRef.current.emit('join-call', url)
+            socketIdRef.current = socketRef.current.id;
+
+            const hasToken = !!localStorage.getItem("token");
+            const createdMeeting = localStorage.getItem("created_meeting");
+            const isCreator = createdMeeting === url || createdMeeting === `/${url}`;
+            const isExplicitAdmin = hasToken || isCreator;
+            
+            console.log("Auth Check:", { hasToken, createdMeeting, url, isCreator, isExplicitAdmin });
+
+            if (isExplicitAdmin) {
+                setMyRole("admin");
+                setIsWaitingForApproval(false);
+                socketRef.current.emit('join-call', url, true, username);
+            } else {
+                socketRef.current.on('join-approved', (isAdmin) => {
+                    setMyRole(isAdmin ? "admin" : "guest");
+                    setIsWaitingForApproval(false);
+                    socketRef.current.emit('join-call', url, isAdmin, username);
+                });
+
+                setIsWaitingForApproval(true);
+                socketRef.current.emit('join-request', url, { username });
+            }
+
+            socketRef.current.on('join-denied', () => {
+                setIsWaitingForApproval(false);
+                alert("Your request to join the meeting was denied by the host.");
+                window.location.href = "/home";
+            });
+
+            socketRef.current.on('guest-requesting-join', (data) => {
+                setJoinRequests(prev => [...prev, data]);
+            });
+            
+            socketRef.current.on('all-users-details', (details) => {
+                setPeerDetails(details);
+            });
+
             socketIdRef.current = socketRef.current.id
 
             socketRef.current.on('chat-message', addMessage)
@@ -503,6 +591,7 @@ export default function VideoMeetComponent() {
             socketRef.current.on('user-joined', (id, clients) => {
                 clients.forEach((socketListId) => {
                     if (socketListId === socketIdRef.current) return;
+                    if (connections[socketListId]) return; // Prevent overwriting existing connections!
 
                     connections[socketListId] = new RTCPeerConnection(peerConfigConnections)
                     // Wait for their ice candidate       
@@ -756,7 +845,10 @@ export default function VideoMeetComponent() {
 
     let connect = () => {
         setAskForUsername(false);
-        if (!localStorage.getItem("token")) {
+        const hasToken = !!localStorage.getItem("token");
+        const createdMeeting = localStorage.getItem("created_meeting");
+        const isCreator = createdMeeting === url || createdMeeting === `/${url}`;
+        if (!hasToken && !isCreator) {
             setUsername(prev => prev + " ( guest )");
         }
         getMedia();
@@ -859,11 +951,16 @@ export default function VideoMeetComponent() {
                                     aspectRatio: '16/9',
                                     backgroundColor: 'black'
                                 }}>
-                                    <video ref={localVideoref} autoPlay muted style={{ width: '100%', height: '100%', objectFit: 'cover' }}></video>
+                                    <video ref={localVideoref} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }}></video>
                                 </Box>
                             </Box>
                         </Paper>
                     </motion.div>
+                </Box> : isWaitingForApproval ?
+                <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: 'linear-gradient(135deg, #1e1e1e, #000000)', color: 'white' }}>
+                    <CircularProgress size={60} sx={{ color: '#ff9839', mb: 4 }} />
+                    <Typography variant="h5" sx={{ fontWeight: 'bold' }}>Waiting for host to admit you...</Typography>
+                    <Typography variant="body1" sx={{ color: '#aaa', mt: 1 }}>Please hold, someone will let you in shortly.</Typography>
                 </Box> :
 
 
@@ -905,15 +1002,17 @@ export default function VideoMeetComponent() {
                             transition: 'all 0.3s ease',
                             backgroundColor: 'black'
                         }}>
-                            <video ref={localVideoref} autoPlay muted style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: 'block' }}></video>
-                            <Box sx={{ position: 'absolute', bottom: 10, left: 10, backgroundColor: 'rgba(0,0,0,0.6)', padding: '4px 12px', borderRadius: '15px', backdropFilter: 'blur(4px)' }}>
-                                <Typography variant="subtitle2" sx={{ color: 'white', fontWeight: 'bold' }}>You</Typography>
+                            <video ref={localVideoref} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: 'block' }}></video>
+                            <Box sx={{ position: 'absolute', bottom: 10, left: 10, backgroundColor: 'rgba(0,0,0,0.6)', padding: '4px 12px', borderRadius: '15px', backdropFilter: 'blur(4px)', maxWidth: '150px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                <Typography variant="subtitle2" sx={{ color: 'white', fontWeight: 'bold' }}>
+                                    {username || "You"} ({myRole || "connecting..."})
+                                </Typography>
                             </Box>
                         </Paper>
 
                         {/* Remote Videos */}
                         {videos.map((video) => (
-                            <RemoteVideo key={video.socketId} video={video} totalVideos={videos.length} audioOutputDevice={selectedAudioOutputDevice} />
+                            <RemoteVideo key={video.socketId} video={video} totalVideos={videos.length} audioOutputDevice={selectedAudioOutputDevice} details={peerDetails[video.socketId]} />
                         ))}
                     </Box>
 
@@ -1155,6 +1254,23 @@ export default function VideoMeetComponent() {
                     >
                         End Call
                     </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Admin Join Request Dialog */}
+            <Dialog 
+                open={joinRequests.length > 0} 
+                PaperProps={{ sx: { backgroundColor: '#1e1e1e', color: 'white', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.1)' } }}
+            >
+                <DialogTitle sx={{ fontWeight: 'bold' }}>Guest Admittance</DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ color: '#ccc' }}>
+                        <strong style={{ color: '#fff' }}>{joinRequests[0]?.username}</strong> is waiting in the lobby to join the meeting.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions sx={{ padding: '20px' }}>
+                    <Button onClick={() => handleJoinResponse(joinRequests[0].socketId, false)} sx={{ color: '#f44336' }}>Deny Entry</Button>
+                    <Button onClick={() => handleJoinResponse(joinRequests[0].socketId, true)} variant="contained" sx={{ backgroundColor: '#ff9839', '&:hover': { backgroundColor: '#e08933' } }}>Admit</Button>
                 </DialogActions>
             </Dialog>
 

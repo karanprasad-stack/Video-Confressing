@@ -34,6 +34,7 @@ export default function LandingPage() {
     const handleCreateMeeting = () => {
         const randomCode = Math.random().toString(36).substring(2, 8);
         setGuestCode(randomCode);
+        localStorage.setItem("created_meeting", randomCode);
         setModalStep(3);
     }
 
