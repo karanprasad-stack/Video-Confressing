@@ -613,38 +613,29 @@ export default function VideoMeetComponent() {
 
                     // Wait for their video stream
                     connections[socketListId].ontrack = (event) => {
-                        console.log("BEFORE:", videoRef.current);
-                        console.log("FINDING ID: ", socketListId);
-
-                        let videoExists = videoRef.current.find(video => video.socketId === socketListId);
-
-                        if (videoExists) {
-                            console.log("FOUND EXISTING");
-
-                            // Update the stream of the existing video
-                            setVideos(videos => {
-                                const updatedVideos = videos.map(video =>
+                        console.log("Track received from", socketListId, event.track.kind);
+                        
+                        setVideos(prevVideos => {
+                            const videoExists = prevVideos.find(video => video.socketId === socketListId);
+                            
+                            let updatedVideos;
+                            if (videoExists) {
+                                console.log("Updating existing video stream");
+                                updatedVideos = prevVideos.map(video =>
                                     video.socketId === socketListId ? { ...video, stream: event.streams[0] } : video
                                 );
-                                videoRef.current = updatedVideos;
-                                return updatedVideos;
-                            });
-                        } else {
-                            // Create a new video
-                            console.log("CREATING NEW");
-                            let newVideo = {
-                                socketId: socketListId,
-                                stream: event.streams[0],
-                                autoplay: true,
-                                playsinline: true
-                            };
-
-                            setVideos(videos => {
-                                const updatedVideos = [...videos, newVideo];
-                                videoRef.current = updatedVideos;
-                                return updatedVideos;
-                            });
-                        }
+                            } else {
+                                console.log("Creating new video stream entry");
+                                updatedVideos = [...prevVideos, {
+                                    socketId: socketListId,
+                                    stream: event.streams[0],
+                                    autoplay: true,
+                                    playsinline: true
+                                }];
+                            }
+                            videoRef.current = updatedVideos;
+                            return updatedVideos;
+                        });
                     };
 
 
@@ -991,7 +982,7 @@ export default function VideoMeetComponent() {
                 // Meeting View
                 <Box
                     sx={{
-                        background: 'linear-gradient(135deg, #2c3e50, #000000)',
+                        background: 'radial-gradient(circle at 50% 0%, #1e293b, #0f172a 80%)',
                         height: '100vh',
                         display: 'flex',
                         flexDirection: 'column',
@@ -999,14 +990,76 @@ export default function VideoMeetComponent() {
                         overflow: 'hidden'
                     }}
                 >
+                    {/* Top Bar Header */}
+                    <Box sx={{
+                        height: '70px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        px: 3,
+                        background: 'rgba(15, 23, 42, 0.45)',
+                        backdropFilter: 'blur(12px)',
+                        borderBottom: '1px solid rgba(255,255,255,0.06)',
+                        zIndex: 100
+                    }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <VideocamIcon sx={{ color: '#60a5fa', fontSize: 28 }} />
+                            <Typography variant="h6" sx={{ color: '#f8fafc', fontWeight: 800, letterSpacing: '0.02em', display: { xs: 'none', sm: 'block' } }}>
+                                Apna Video Call
+                            </Typography>
+                        </Box>
+
+                        {/* Meeting Code Display */}
+                        <Box sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            borderRadius: '12px',
+                            px: 2.5,
+                            py: 0.8,
+                            backdropFilter: 'blur(8px)',
+                            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)'
+                        }}>
+                            <Typography variant="body2" sx={{ color: '#94a3b8', fontWeight: 500 }}>Code:</Typography>
+                            <Typography variant="body2" sx={{ color: '#f8fafc', fontWeight: 700, letterSpacing: 1.5 }}>{url}</Typography>
+                            <IconButton size="small" onClick={() => navigator.clipboard.writeText(url)} sx={{ color: '#60a5fa', ml: 1, '&:hover': { color: '#93c5fd' } }}>
+                                <ContentCopyIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                        </Box>
+
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Button
+                                startIcon={<HomeIcon sx={{ fontSize: 18 }} />}
+                                onClick={() => navigate('/home')}
+                                variant="text"
+                                sx={{
+                                    color: '#94a3b8',
+                                    textTransform: 'none',
+                                    fontWeight: 600,
+                                    fontSize: '0.85rem',
+                                    borderRadius: '10px',
+                                    '&:hover': {
+                                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                        color: '#f8fafc'
+                                    }
+                                }}
+                            >
+                                Dashboard
+                            </Button>
+                        </Box>
+                    </Box>
+
                     {/* Main Video Area */}
                     <Box sx={{
                         flex: 1,
                         display: 'flex',
                         justifyContent: 'center',
                         alignItems: 'center',
-                        padding: 2,
-                        gap: 2,
+                        padding: 3,
+                        paddingBottom: '120px', // Spacing for bottom floating controls
+                        gap: 3,
                         flexWrap: 'wrap',
                         overflowY: 'auto'
                     }}>
@@ -1014,15 +1067,15 @@ export default function VideoMeetComponent() {
                         <Paper elevation={10} sx={{
                             borderRadius: 4,
                             overflow: 'hidden',
-                            height: videos.length === 0 ? 'auto' : (videos.length === 1 ? '180px' : 'auto'),
-                            width: videos.length === 0 ? '60vw' : (videos.length === 1 ? '240px' : (videos.length === 2 ? '40vw' : '28vw')),
+                            height: videos.length === 0 ? 'auto' : '160px',
+                            width: videos.length === 0 ? '65vw' : '280px',
                             aspectRatio: '16/9',
-                            position: videos.length === 1 ? 'absolute' : 'relative',
-                            bottom: videos.length === 1 ? 40 : 'auto',
-                            right: videos.length === 1 ? 40 : 'auto',
-                            zIndex: videos.length === 1 ? 10 : 1,
-                            border: '3px solid rgba(255,152,57, 0.7)',
-                            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5)',
+                            position: videos.length === 0 ? 'relative' : 'absolute',
+                            bottom: videos.length === 0 ? 'auto' : '110px', // Raised to sit cleanly above bottom bar
+                            right: videos.length === 0 ? 'auto' : '30px',
+                            zIndex: videos.length === 0 ? 1 : 10,
+                            border: '2px solid #3b82f6',
+                            boxShadow: '0 12px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05)',
                             transition: 'all 0.3s ease',
                             backgroundColor: 'black'
                         }}>
@@ -1046,28 +1099,30 @@ export default function VideoMeetComponent() {
                         bottom: 30,
                         left: '50%',
                         transform: 'translateX(-50%)',
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                        backdropFilter: 'blur(10px)',
+                        backgroundColor: 'rgba(30, 41, 59, 0.75)',
+                        backdropFilter: 'blur(16px)',
+                        WebkitBackdropFilter: 'blur(16px)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
                         borderRadius: '50px',
-                        padding: '10px 30px',
+                        padding: '12px 32px',
                         display: 'flex',
-                        gap: 2,
-                        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+                        gap: 2.5,
+                        boxShadow: '0 16px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
                         zIndex: 1000
                     }}>
-                        <IconButton onClick={handleVideo} sx={{ color: 'white', backgroundColor: video ? 'rgba(255,255,255,0.2)' : '#f44336', '&:hover': { backgroundColor: video ? 'rgba(255,255,255,0.3)' : '#d32f2f' } }}>
+                        <IconButton onClick={handleVideo} sx={{ color: 'white', backgroundColor: video ? 'rgba(255,255,255,0.08)' : '#ef4444', '&:hover': { backgroundColor: video ? 'rgba(255,255,255,0.15)' : '#dc2626' } }}>
                             {(video === true) ? <VideocamIcon /> : <VideocamOffIcon />}
                         </IconButton>
 
-                        <IconButton onClick={handleAudio} sx={{ color: 'white', backgroundColor: audio ? 'rgba(255,255,255,0.2)' : '#f44336', '&:hover': { backgroundColor: audio ? 'rgba(255,255,255,0.3)' : '#d32f2f' } }}>
+                        <IconButton onClick={handleAudio} sx={{ color: 'white', backgroundColor: audio ? 'rgba(255,255,255,0.08)' : '#ef4444', '&:hover': { backgroundColor: audio ? 'rgba(255,255,255,0.15)' : '#dc2626' } }}>
                             {audio === true ? <MicIcon /> : <MicOffIcon />}
                         </IconButton>
 
-                        <IconButton onClick={handleScreen} sx={{ color: 'white', backgroundColor: screen ? '#2196f3' : 'rgba(255,255,255,0.2)', '&:hover': { backgroundColor: screen ? '#1976d2' : 'rgba(255,255,255,0.3)' } }}>
+                        <IconButton onClick={handleScreen} sx={{ color: 'white', backgroundColor: screen ? '#3b82f6' : 'rgba(255,255,255,0.08)', '&:hover': { backgroundColor: screen ? '#2563eb' : 'rgba(255,255,255,0.15)' } }}>
                             {screen === true ? <ScreenShareIcon /> : <StopScreenShareIcon />}
                         </IconButton>
 
-                        <IconButton onClick={() => setSettingsOpen(true)} sx={{ color: 'white', backgroundColor: 'rgba(255,255,255,0.2)', '&:hover': { backgroundColor: 'rgba(255,255,255,0.3)' } }}>
+                        <IconButton onClick={() => setSettingsOpen(true)} sx={{ color: 'white', backgroundColor: 'rgba(255,255,255,0.08)', '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' } }}>
                             <SettingsIcon />
                         </IconButton>
 
@@ -1120,42 +1175,20 @@ export default function VideoMeetComponent() {
                 </DialogActions>
             </Dialog>
 
-                        <IconButton onClick={handleEndCall} sx={{ color: 'white', backgroundColor: '#f44336', '&:hover': { backgroundColor: '#d32f2f' } }}>
+                        <IconButton onClick={handleEndCall} sx={{ color: 'white', backgroundColor: '#ef4444', '&:hover': { backgroundColor: '#dc2626' } }}>
                             <CallEndIcon />
                         </IconButton>
 
                         <IconButton onClick={() => {
                             setModal(!showModal);
                             setNewMessages(0);
-                        }} sx={{ color: 'white', backgroundColor: 'rgba(255,255,255,0.2)', '&:hover': { backgroundColor: 'rgba(255,255,255,0.3)' } }}>
+                        }} sx={{ color: 'white', backgroundColor: 'rgba(255,255,255,0.08)', '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' } }}>
                             <Badge badgeContent={newMessages} max={99} color="secondary">
                                 <ChatIcon />
                             </Badge>
                         </IconButton>
 
 
-                    </Box>
-
-                    {/* Meeting Code Display */}
-                    <Box sx={{
-                        position: 'absolute',
-                        top: 20,
-                        left: 20,
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                        backdropFilter: 'blur(10px)',
-                        padding: '10px 20px',
-                        borderRadius: '15px',
-                        color: 'white',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1
-                    }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>Code:</Typography>
-                        <Typography variant="body1" sx={{ letterSpacing: 1 }}>{url}</Typography>
-                        <IconButton size="small" onClick={() => navigator.clipboard.writeText(url)} sx={{ color: 'white', ml: 1 }}>
-                            <ContentCopyIcon fontSize="small" />
-                        </IconButton>
                     </Box>
 
 
