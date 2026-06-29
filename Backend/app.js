@@ -27,10 +27,25 @@ const io = connectToSocket(server);
 
 app.set("port", (process.env.PORT || 8000))
 app.use(cors({
-    origin: [
-        "http://localhost:5173",
-        "https://video-confressing-5.onrender.com"
-    ],
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps, curl, or sockets)
+        if (!origin) return callback(null, true);
+        
+        const allowedOrigins = [
+            "http://localhost:5173",
+            "https://video-confressing-5.onrender.com"
+        ];
+        
+        const isAllowed = allowedOrigins.includes(origin) || 
+                          origin.endsWith(".vercel.app") || 
+                          /^http:\/\/localhost:\d+$/.test(origin);
+                          
+        if (isAllowed) {
+            callback(null, true);
+        } else {
+            callback(new Error("Not allowed by CORS"));
+        }
+    },
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
 }));
