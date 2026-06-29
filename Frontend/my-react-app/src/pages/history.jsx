@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import withAuth from '../utils/withAuth';
 import Card from '@mui/material/Card';
 import Box from '@mui/material/Box';
 import CardActions from '@mui/material/CardActions';
@@ -16,7 +17,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
 
-export default function History() {
+function History() {
     const { getHistoryOfUser } = useContext(AuthContext);
     const [meetings, setMeetings] = useState([]);
     const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -180,3 +181,5 @@ export default function History() {
         </Box>
     );
 }
+
+export default withAuth(History);
