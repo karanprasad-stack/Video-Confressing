@@ -12,12 +12,15 @@
 
 ## ✨ Features
 
-- ⚡ **Guest Join:** Join meetings instantly without registering or logging in.
-- 🔐 **Secure Auth:** Host accounts with encrypted credentials via bcrypt.
-- 📞 **Real-Time Video/Audio:** Crystal clear, low-latency streaming utilizing WebRTC connection setups.
-- 💬 **In-Meeting Chat:** Broadcast instant messages to all participants during the call.
-- 📂 **Meeting History:** Save and view previous meetings with quick copy-code & re-join options for authenticated users.
-- 🎨 **Premium UI/UX:** Styled using Material-UI (MUI) with modern gradients, dark mode aesthetics, and micro-interactions by Framer Motion.
+- ⚡ **Guest Join:** Start or join meetings instantly without registering or logging in.
+- 🔐 **Secure Authentication:** Account creation and login with JWT and bcrypt security.
+- 📞 **Real-Time Video & Audio:** Peer-to-peer WebRTC streaming with adaptive multi-party connections.
+- 🎛️ **Modern Floating Dock:** Glassmorphism meeting control dock with microphone, camera, screen-share, volume slider popover, and mobile settings bottom sheet.
+- 📐 **Dynamic Responsive Video Grid:** Automatic layout optimization for single participants, 2-user stacks (mobile portrait) or side-by-side columns (landscape/desktop), and multi-user conference grids.
+- 💬 **In-Meeting Chat Drawer:** Real-time messaging with slide-out drawer on desktop and mobile.
+- 📂 **Meeting History:** Instant copy-to-clipboard meeting codes and history tracking for authenticated users.
+- 📱 **Spacious Mobile Layout:** Intentional vertical breathing rhythm on mobile landing and dashboard screens with zero crowding.
+- 🎨 **Unified Dark SaaS Aesthetic:** Consistent dark navy theme (`#0b0f19` / `#172033`), radiant blue/purple accents, frosted glass cards, and smooth micro-interactions powered by Framer Motion across the entire app.
 
 ---
 

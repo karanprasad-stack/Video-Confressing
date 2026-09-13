@@ -22,6 +22,8 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import HomeIcon from '@mui/icons-material/Home';
 import GroupsIcon from '@mui/icons-material/Groups';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CheckIcon from '@mui/icons-material/Check';
+import PersonIcon from '@mui/icons-material/Person';
 
 const server_url = server;
 
@@ -37,7 +39,7 @@ const peerConfigConnections = {
     ]
 }
 
-const RemoteVideo = ({ video, totalVideos, audioOutputDevice, details }) => {
+const RemoteVideo = ({ video, totalVideos, audioOutputDevice, details, masterVolume = 1, masterMuted = false }) => {
     const videoRef = useRef(null);
     const [volume, setVolume] = useState(1);
     const [isMuted, setIsMuted] = useState(false);
@@ -59,23 +61,35 @@ const RemoteVideo = ({ video, totalVideos, audioOutputDevice, details }) => {
 
     useEffect(() => {
         if (videoRef.current) {
-            videoRef.current.volume = volume;
-            videoRef.current.muted = isMuted;
+            const effectiveMuted = isMuted || masterMuted;
+            const effectiveVolume = effectiveMuted ? 0 : volume * masterVolume;
+            videoRef.current.volume = Math.max(0, Math.min(1, effectiveVolume));
+            videoRef.current.muted = effectiveMuted;
         }
-    }, [volume, isMuted]);
+    }, [volume, isMuted, masterVolume, masterMuted]);
+
+    const isEffectivelyMuted = isMuted || masterMuted || volume === 0;
 
     return (
         <Paper elevation={10} sx={{
-            borderRadius: 4,
+            borderRadius: { xs: 2.5, md: 3.5 },
             overflow: 'hidden',
-            height: 'auto',
-            width: totalVideos === 1 ? '75vw' : (totalVideos === 2 ? '40vw' : '28vw'),
-            aspectRatio: '16/9',
+            width: '100%',
+            height: '100%',
+            minWidth: 0,
+            minHeight: 0,
             position: 'relative',
-            border: totalVideos === 1 ? '2px solid rgba(255,255,255,0.1)' : '1px solid rgba(255,255,255,0.1)',
-            boxShadow: '0 20px 50px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1)',
-            backgroundColor: 'black',
-            '&:hover .video-controls': { opacity: 1 }
+            border: '1px solid rgba(255,255,255,0.08)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.04)',
+            backgroundColor: '#0a0e17',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.25s ease',
+            '&:hover .participant-volume-bar': {
+                opacity: 1,
+                pointerEvents: 'auto'
+            }
         }}>
             <video
                 data-socket={video.socketId}
@@ -83,55 +97,103 @@ const RemoteVideo = ({ video, totalVideos, audioOutputDevice, details }) => {
                 autoPlay
                 playsInline
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            >
-            </video>
+            />
 
-            {details && (
+            {/* Participant Name Badge (Bottom-Left) */}
+            <Box sx={{
+                position: 'absolute',
+                bottom: { xs: 10, sm: 14 },
+                left: { xs: 10, sm: 14 },
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.8,
+                backgroundColor: 'rgba(15, 23, 42, 0.78)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                padding: { xs: '3px 8px', sm: '5px 12px' },
+                borderRadius: '8px',
+                zIndex: 15,
+                maxWidth: { xs: '130px', sm: '200px', md: '260px' },
+                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.4)'
+            }}>
                 <Box sx={{
-                    position: 'absolute',
-                    bottom: 15,
-                    left: 15,
-                    backgroundColor: 'rgba(0,0,0,0.6)',
-                    padding: '4px 12px',
-                    borderRadius: '15px',
-                    backdropFilter: 'blur(4px)',
-                    zIndex: 20,
-                    maxWidth: '150px',
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    backgroundColor: isEffectivelyMuted ? '#94a3b8' : '#22c55e',
+                    boxShadow: isEffectivelyMuted ? 'none' : '0 0 8px #22c55e',
+                    flexShrink: 0
+                }} />
+                <Typography variant="caption" sx={{
+                    color: '#f8fafc',
+                    fontWeight: 600,
+                    fontSize: { xs: '0.72rem', sm: '0.8rem' },
                     textOverflow: 'ellipsis',
                     overflow: 'hidden',
                     whiteSpace: 'nowrap'
                 }}>
-                    <Typography variant="subtitle2" sx={{ color: 'white', fontWeight: 'bold' }}>
-                        {details.username} ({details.role})
+                    {details?.username || "Participant"}
+                </Typography>
+                {details?.role && (
+                    <Typography variant="caption" sx={{
+                        color: '#94a3b8',
+                        fontSize: { xs: '0.62rem', sm: '0.68rem' },
+                        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                        px: 0.8,
+                        py: 0.2,
+                        borderRadius: '4px',
+                        textTransform: 'capitalize',
+                        flexShrink: 0
+                    }}>
+                        {details.role}
                     </Typography>
-                </Box>
-            )}
-            
-            {/* Hover UI for Volume */}
-            <Box className="video-controls" sx={{
-                position: 'absolute',
-                bottom: 15,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                display: 'flex',
-                alignItems: 'center',
-                backgroundColor: 'rgba(0,0,0,0.7)',
-                padding: '4px 16px',
-                borderRadius: '25px',
-                backdropFilter: 'blur(4px)',
-                opacity: 0,
-                transition: 'opacity 0.3s ease',
-                width: '200px',
-                zIndex: 20
-            }}>
-                <IconButton 
-                    size="small" 
-                    onClick={() => setIsMuted(!isMuted)}
-                    sx={{ color: isMuted || volume === 0 ? '#f44336' : 'white', mr: 1 }}
-                >
-                    {isMuted || volume === 0 ? <VolumeOffIcon fontSize="small"/> : <VolumeUpIcon fontSize="small"/>}
-                </IconButton>
-                <Slider 
+                )}
+            </Box>
+
+            {/* Participant Volume Pill (Top-Right - Completely clear of bottom dock!) */}
+            <Box
+                className="participant-volume-bar"
+                sx={{
+                    position: 'absolute',
+                    top: { xs: 8, sm: 14 },
+                    right: { xs: 8, sm: 14 },
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.8,
+                    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    padding: { xs: '3px 8px', sm: '4px 12px' },
+                    borderRadius: '24px',
+                    zIndex: 30,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                    opacity: { xs: 0.9, md: 0 },
+                    pointerEvents: 'auto',
+                    transition: 'opacity 0.2s ease, transform 0.2s ease',
+                    '&:hover': {
+                        opacity: 1,
+                        pointerEvents: 'auto'
+                    }
+                }}
+            >
+                <Tooltip title={isMuted ? "Unmute participant" : "Mute participant"}>
+                    <IconButton
+                        size="small"
+                        aria-label={isMuted ? "Unmute participant" : "Mute participant"}
+                        onClick={() => setIsMuted(!isMuted)}
+                        sx={{
+                            color: isEffectivelyMuted ? '#f87171' : '#94a3b8',
+                            p: 0.4,
+                            '&:hover': { color: '#f8fafc' }
+                        }}
+                    >
+                        {isEffectivelyMuted ? <VolumeOffIcon sx={{ fontSize: { xs: 15, sm: 17 } }} /> : <VolumeUpIcon sx={{ fontSize: { xs: 15, sm: 17 } }} />}
+                    </IconButton>
+                </Tooltip>
+
+                <Slider
                     size="small"
                     value={isMuted ? 0 : volume}
                     min={0}
@@ -142,8 +204,26 @@ const RemoteVideo = ({ video, totalVideos, audioOutputDevice, details }) => {
                         if (val > 0 && isMuted) setIsMuted(false);
                         if (val === 0 && !isMuted) setIsMuted(true);
                     }}
-                    sx={{ color: '#ff9839' }}
+                    sx={{
+                        width: { xs: 50, sm: 80 },
+                        color: '#3b82f6',
+                        py: 0.5,
+                        '& .MuiSlider-thumb': {
+                            width: 10,
+                            height: 10,
+                            '&:hover, &.Mui-focusVisible': {
+                                boxShadow: '0 0 0 6px rgba(59, 130, 246, 0.2)'
+                            }
+                        },
+                        '& .MuiSlider-rail': {
+                            opacity: 0.3
+                        }
+                    }}
                 />
+
+                <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '0.68rem', minWidth: '26px', textAlign: 'right', fontWeight: 600, display: { xs: 'none', sm: 'inline' } }}>
+                    {isMuted ? "0%" : `${Math.round(volume * 100)}%`}
+                </Typography>
             </Box>
         </Paper>
     );
@@ -199,10 +279,33 @@ export default function VideoMeetComponent() {
     const [selectedAudioOutputDevice, setSelectedAudioOutputDevice] = useState("");
     
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [copied, setCopied] = useState(false);
+    const [masterVolume, setMasterVolume] = useState(1);
+    const [masterMuted, setMasterMuted] = useState(false);
+    const [showVolumePopup, setShowVolumePopup] = useState(false);
 
     const navigate = useNavigate();
     const location = useLocation();
     const { url } = useParams();
+
+    const handleCopyCode = () => {
+        if (url) {
+            navigator.clipboard.writeText(url);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
+    useEffect(() => {
+        if (!showVolumePopup) return;
+        const handleClickOutside = (e) => {
+            if (!e.target.closest('.volume-popover-container')) {
+                setShowVolumePopup(false);
+            }
+        };
+        window.addEventListener('mousedown', handleClickOutside);
+        return () => window.removeEventListener('mousedown', handleClickOutside);
+    }, [showVolumePopup]);
 
     const getDevices = async () => {
         try {
@@ -805,6 +908,21 @@ export default function VideoMeetComponent() {
     }
 
     useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+                e.preventDefault();
+                handleAudio();
+            } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
+                e.preventDefault();
+                handleVideo();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [audio, video]);
+
+    useEffect(() => {
         if (screen !== undefined) {
             getDisplayMedia();
         }
@@ -875,21 +993,39 @@ export default function VideoMeetComponent() {
 
             {askForUsername === true ?
 
-                <Box component="main" sx={{ height: '100vh', width: '100vw', overflow: 'hidden', background: 'linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                <Box component="main" sx={{
+                    height: '100vh',
+                    width: '100vw',
+                    overflow: 'hidden',
+                    background: 'radial-gradient(circle at 50% 10%, #1e293b, #0b0f19 80%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative',
+                    px: 2
+                }}>
                     <CssBaseline />
 
                     <Button
-                        startIcon={<HomeIcon />}
+                        startIcon={<HomeIcon sx={{ fontSize: 18 }} />}
                         onClick={() => navigate('/')}
                         sx={{
                             position: 'absolute',
-                            top: 20,
-                            right: 20,
-                            color: 'white',
-                            borderColor: 'white',
+                            top: { xs: 16, sm: 24 },
+                            right: { xs: 16, sm: 24 },
+                            color: '#94a3b8',
+                            backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            borderRadius: '10px',
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            fontSize: '0.85rem',
+                            px: 2,
+                            py: 0.8,
                             '&:hover': {
-                                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                                borderColor: '#FF9839',
+                                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                                color: '#f8fafc',
+                                borderColor: 'rgba(255, 255, 255, 0.2)',
                             }
                         }}
                         variant="outlined"
@@ -897,93 +1033,142 @@ export default function VideoMeetComponent() {
                         Back to Home
                     </Button>
 
-
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.5 }}
+                        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        transition={{ duration: 0.4 }}
                     >
                         <Paper
-                            elevation={6}
+                            elevation={16}
                             sx={{
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
-                                padding: 4,
-                                borderRadius: 3,
-                                maxWidth: 500,
-                                width: '90vw',
-                                backgroundColor: '#fff',
+                                padding: { xs: 3, sm: 4 },
+                                borderRadius: '20px',
+                                maxWidth: 480,
+                                width: '92vw',
+                                backgroundColor: 'rgba(15, 23, 42, 0.88)',
+                                backdropFilter: 'blur(20px)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                boxShadow: '0 24px 60px rgba(0, 0, 0, 0.7)'
                             }}
                         >
-                            <Avatar sx={{ m: 1, bgcolor: '#ff9839', width: 56, height: 56 }}>
-                                <GroupsIcon sx={{ fontSize: 30 }} />
-                            </Avatar>
+                            <Box sx={{
+                                width: 50,
+                                height: 50,
+                                borderRadius: '14px',
+                                background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                mb: 2,
+                                boxShadow: '0 0 20px rgba(37, 99, 235, 0.4)'
+                            }}>
+                                <VideocamIcon sx={{ fontSize: 28, color: 'white' }} />
+                            </Box>
 
-                            <Typography component="h1" variant="h4" sx={{ fontWeight: 'bold', color: '#333', mt: 1 }}>
-                                Join as Guest
+                            <Typography component="h1" variant="h5" sx={{ fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.02em' }}>
+                                Ready to join?
                             </Typography>
-                            <Typography variant="body1" sx={{ color: '#666', mb: 3, textAlign: 'center' }}>
-                                Enter your name to join the meeting
+                            <Typography variant="body2" sx={{ color: '#94a3b8', mb: 3, mt: 0.5, textAlign: 'center' }}>
+                                Enter your name to join meeting <strong style={{ color: '#60a5fa' }}>{url}</strong>
                             </Typography>
 
                             <Box sx={{ width: '100%' }}>
                                 <TextField
                                     id="outlined-basic"
-                                    label="Username"
+                                    placeholder="Your Name"
                                     value={username}
                                     onChange={e => setUsername(e.target.value)}
                                     variant="outlined"
                                     fullWidth
-                                    sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                                    autoFocus
+                                    onKeyPress={(e) => {
+                                        if (e.key === 'Enter' && username.trim()) connect();
+                                    }}
+                                    sx={{
+                                        mb: 2.5,
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: '12px',
+                                            color: '#f8fafc',
+                                            backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                                            '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' },
+                                            '&:hover fieldset': { borderColor: 'rgba(255, 255, 255, 0.3)' },
+                                            '&.Mui-focused fieldset': { borderColor: '#3b82f6' }
+                                        },
+                                        '& .MuiInputBase-input::placeholder': {
+                                            color: '#64748b',
+                                            opacity: 1
+                                        }
+                                    }}
                                 />
 
                                 <Button
                                     variant="contained"
                                     onClick={connect}
-                                    disabled={!username}
+                                    disabled={!username.trim()}
                                     fullWidth
                                     sx={{
-                                        mb: 3,
-                                        borderRadius: '30px',
-                                        backgroundColor: '#ff9839',
+                                        mb: 2.5,
+                                        borderRadius: '12px',
+                                        backgroundColor: '#2563eb',
                                         color: '#fff',
-                                        fontWeight: 'bold',
-                                        fontSize: '1rem',
-                                        padding: '12px',
-                                        '&:hover': { backgroundColor: '#e08933' }
+                                        fontWeight: 700,
+                                        fontSize: '0.95rem',
+                                        padding: '11px',
+                                        textTransform: 'none',
+                                        boxShadow: '0 4px 16px rgba(37, 99, 235, 0.35)',
+                                        '&:hover': { backgroundColor: '#1d4ed8', boxShadow: '0 6px 20px rgba(37, 99, 235, 0.5)' },
+                                        '&.Mui-disabled': {
+                                            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                                            color: '#64748b'
+                                        }
                                     }}
                                 >
-                                    Connect
+                                    Join Meeting
                                 </Button>
 
                                 <Box sx={{
-                                    borderRadius: '12px',
+                                    borderRadius: '14px',
                                     overflow: 'hidden',
-                                    boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                                    border: '1px solid #eee',
+                                    boxShadow: '0 12px 30px rgba(0,0,0,0.5)',
+                                    border: '1px solid rgba(255, 255, 255, 0.08)',
                                     width: '100%',
                                     aspectRatio: '16/9',
-                                    backgroundColor: 'black'
+                                    backgroundColor: '#0a0e17'
                                 }}>
-                                    <video ref={localVideoref} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }}></video>
+                                    <video ref={localVideoref} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}></video>
                                 </Box>
                             </Box>
                         </Paper>
                     </motion.div>
                 </Box> : isWaitingForApproval ?
-                <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: 'linear-gradient(135deg, #1e1e1e, #000000)', color: 'white' }}>
-                    <CircularProgress size={60} sx={{ color: '#ff9839', mb: 4 }} />
-                    <Typography variant="h5" sx={{ fontWeight: 'bold' }}>Waiting for host to admit you...</Typography>
-                    <Typography variant="body1" sx={{ color: '#aaa', mt: 1 }}>Please hold, someone will let you in shortly.</Typography>
+                <Box sx={{
+                    height: '100vh',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    background: 'radial-gradient(circle at 50% 10%, #1e293b, #0b0f19 80%)',
+                    color: 'white',
+                    px: 3,
+                    textAlign: 'center'
+                }}>
+                    <CircularProgress size={56} sx={{ color: '#3b82f6', mb: 3 }} />
+                    <Typography variant="h5" sx={{ fontWeight: 700, color: '#f8fafc' }}>Waiting for host to admit you...</Typography>
+                    <Typography variant="body2" sx={{ color: '#94a3b8', mt: 1, maxWidth: 360 }}>
+                        Please hold on. The meeting host will review your request shortly.
+                    </Typography>
                 </Box> :
 
-
-                // Meeting View
+                // Redesigned Modern Meeting View
                 <Box
                     sx={{
-                        background: 'radial-gradient(circle at 50% 0%, #1e293b, #0f172a 80%)',
+                        background: 'radial-gradient(circle at 50% 0%, #172033, #0b0f19 85%)',
                         height: '100vh',
+                        minHeight: '100dvh',
+                        maxHeight: '100dvh',
                         display: 'flex',
                         flexDirection: 'column',
                         position: 'relative',
@@ -992,61 +1177,118 @@ export default function VideoMeetComponent() {
                 >
                     {/* Top Bar Header */}
                     <Box sx={{
-                        height: '70px',
+                        height: { xs: '50px', sm: '56px' },
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        px: 3,
-                        background: 'rgba(15, 23, 42, 0.45)',
-                        backdropFilter: 'blur(12px)',
-                        borderBottom: '1px solid rgba(255,255,255,0.06)',
-                        zIndex: 100
+                        px: { xs: 1.5, sm: 3 },
+                        background: 'rgba(11, 15, 25, 0.85)',
+                        backdropFilter: 'blur(16px)',
+                        WebkitBackdropFilter: 'blur(16px)',
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.07)',
+                        zIndex: 90
                     }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                            <VideocamIcon sx={{ color: '#60a5fa', fontSize: 28 }} />
-                            <Typography variant="h6" sx={{ color: '#f8fafc', fontWeight: 800, letterSpacing: '0.02em', display: { xs: 'none', sm: 'block' } }}>
-                                Apna Video Call
-                            </Typography>
+                        {/* Left: Branding */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 } }}>
+                            <Box sx={{
+                                width: { xs: 28, sm: 34 },
+                                height: { xs: 28, sm: 34 },
+                                borderRadius: '8px',
+                                background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                boxShadow: '0 0 16px rgba(37, 99, 235, 0.35)'
+                            }}>
+                                <VideocamIcon sx={{ color: 'white', fontSize: { xs: 17, sm: 20 } }} />
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                                <Typography variant="subtitle1" sx={{ color: '#f8fafc', fontWeight: 700, fontSize: { xs: '0.85rem', sm: '0.95rem' }, letterSpacing: '-0.01em' }}>
+                                    Apna Video Call
+                                </Typography>
+                                <Box sx={{
+                                    width: 7,
+                                    height: 7,
+                                    borderRadius: '50%',
+                                    backgroundColor: '#22c55e',
+                                    boxShadow: '0 0 8px #22c55e',
+                                    display: { xs: 'none', sm: 'block' }
+                                }} />
+                            </Box>
                         </Box>
 
-                        {/* Meeting Code Display */}
+                        {/* Center: Meeting Code Pill */}
                         <Box sx={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 1,
-                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                            borderRadius: '12px',
-                            px: 2.5,
-                            py: 0.8,
+                            gap: { xs: 0.5, sm: 1 },
+                            backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            borderRadius: '10px',
+                            px: { xs: 1, sm: 1.8 },
+                            py: 0.4,
                             backdropFilter: 'blur(8px)',
-                            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)'
+                            transition: 'all 0.2s ease',
+                            '&:hover': {
+                                backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                                borderColor: 'rgba(255, 255, 255, 0.14)'
+                            }
                         }}>
-                            <Typography variant="body2" sx={{ color: '#94a3b8', fontWeight: 500 }}>Code:</Typography>
-                            <Typography variant="body2" sx={{ color: '#f8fafc', fontWeight: 700, letterSpacing: 1.5 }}>{url}</Typography>
-                            <IconButton size="small" onClick={() => navigator.clipboard.writeText(url)} sx={{ color: '#60a5fa', ml: 1, '&:hover': { color: '#93c5fd' } }}>
-                                <ContentCopyIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
+                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.68rem', letterSpacing: '0.04em', display: { xs: 'none', sm: 'inline' } }}>
+                                Meeting
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: '#f1f5f9', fontWeight: 700, letterSpacing: '0.05em', fontFamily: 'monospace', fontSize: { xs: '0.78rem', sm: '0.85rem' } }}>
+                                {url}
+                            </Typography>
+                            <Tooltip title={copied ? "Copied!" : "Copy meeting code"}>
+                                <IconButton
+                                    size="small"
+                                    aria-label="Copy meeting code"
+                                    onClick={handleCopyCode}
+                                    sx={{
+                                        color: copied ? '#22c55e' : '#94a3b8',
+                                        p: 0.3,
+                                        ml: 0.2,
+                                        transition: 'color 0.2s ease',
+                                        '&:hover': { color: copied ? '#22c55e' : '#60a5fa' }
+                                    }}
+                                >
+                                    {copied ? <CheckIcon sx={{ fontSize: { xs: 13, sm: 15 } }} /> : <ContentCopyIcon sx={{ fontSize: { xs: 13, sm: 15 } }} />}
+                                </IconButton>
+                            </Tooltip>
                         </Box>
 
+                        {/* Right: Dashboard Button */}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Button
-                                startIcon={<HomeIcon sx={{ fontSize: 18 }} />}
+                                startIcon={<HomeIcon sx={{ fontSize: 17 }} />}
                                 onClick={() => navigate('/home')}
                                 variant="text"
+                                aria-label="Go to dashboard"
                                 sx={{
                                     color: '#94a3b8',
                                     textTransform: 'none',
                                     fontWeight: 600,
-                                    fontSize: '0.85rem',
-                                    borderRadius: '10px',
+                                    fontSize: '0.82rem',
+                                    borderRadius: '9px',
+                                    px: { xs: 1, sm: 1.6 },
+                                    py: 0.6,
+                                    minWidth: { xs: '36px', sm: 'auto' },
+                                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                                    border: '1px solid rgba(255, 255, 255, 0.07)',
+                                    transition: 'all 0.2s ease',
                                     '&:hover': {
-                                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                                        borderColor: 'rgba(255, 255, 255, 0.16)',
                                         color: '#f8fafc'
+                                    },
+                                    '& .MuiButton-startIcon': {
+                                        marginRight: { xs: 0, sm: '8px' },
+                                        marginLeft: 0
                                     }
                                 }}
                             >
-                                Dashboard
+                                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Dashboard</Box>
                             </Button>
                         </Box>
                     </Box>
@@ -1054,83 +1296,558 @@ export default function VideoMeetComponent() {
                     {/* Main Video Area */}
                     <Box sx={{
                         flex: 1,
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        padding: 3,
-                        paddingBottom: '120px', // Spacing for bottom floating controls
-                        gap: 3,
-                        flexWrap: 'wrap',
-                        overflowY: 'auto'
+                        minHeight: 0,
+                        width: '100%',
+                        display: videos.length === 0 ? 'flex' : 'grid',
+                        justifyContent: videos.length === 0 ? 'center' : 'stretch',
+                        alignItems: videos.length === 0 ? 'center' : 'stretch',
+                        gridTemplateColumns: videos.length === 1
+                            ? '1fr'
+                            : videos.length === 2
+                                ? { xs: '1fr', md: '1fr 1fr' }
+                                : { xs: '1fr 1fr', md: 'repeat(auto-fit, minmax(320px, 1fr))' },
+                        gridTemplateRows: videos.length === 1
+                            ? '1fr'
+                            : videos.length === 2
+                                ? { xs: '1fr 1fr', md: '1fr' }
+                                : { xs: 'repeat(2, 1fr)', md: 'repeat(auto-fit, minmax(240px, 1fr))' },
+                        gap: { xs: 1, sm: 1.5, md: 2 },
+                        padding: { xs: 1, sm: 1.5, md: 2 },
+                        paddingBottom: 'calc(74px + env(safe-area-inset-bottom, 0px))',
+                        position: 'relative',
+                        overflow: 'hidden'
                     }}>
-                        {/* Local Video */}
+                        {/* Local Video Tile */}
                         <Paper elevation={10} sx={{
-                            borderRadius: 4,
+                            borderRadius: { xs: 2.5, md: 3.5 },
                             overflow: 'hidden',
-                            height: videos.length === 0 ? 'auto' : '160px',
-                            width: videos.length === 0 ? '65vw' : '280px',
-                            aspectRatio: '16/9',
+                            width: videos.length === 0 ? '100%' : { xs: '96px', sm: '140px', md: '200px' },
+                            height: videos.length === 0 ? '100%' : 'auto',
+                            maxWidth: videos.length === 0 ? { xs: '100%', md: '1100px' } : 'none',
+                            maxHeight: videos.length === 0 ? { xs: '100%', md: 'calc(100vh - 160px)' } : 'none',
+                            aspectRatio: videos.length === 0 ? { xs: 'auto', sm: '16/9' } : '16/9',
                             position: videos.length === 0 ? 'relative' : 'absolute',
-                            bottom: videos.length === 0 ? 'auto' : '110px', // Raised to sit cleanly above bottom bar
-                            right: videos.length === 0 ? 'auto' : '30px',
-                            zIndex: videos.length === 0 ? 1 : 10,
-                            border: '2px solid #3b82f6',
-                            boxShadow: '0 12px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05)',
+                            bottom: videos.length === 0 ? 'auto' : 'calc(74px + env(safe-area-inset-bottom, 0px))',
+                            right: videos.length === 0 ? 'auto' : { xs: '8px', sm: '16px' },
+                            zIndex: videos.length === 0 ? 1 : 40,
+                            border: videos.length === 0 ? '1px solid rgba(255,255,255,0.08)' : '1.5px solid rgba(59, 130, 246, 0.6)',
+                            boxShadow: videos.length === 0
+                                ? '0 20px 50px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.04)'
+                                : '0 12px 32px rgba(0,0,0,0.8), 0 0 16px rgba(59, 130, 246, 0.2)',
                             transition: 'all 0.3s ease',
-                            backgroundColor: 'black'
+                            backgroundColor: '#0a0e17',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
                         }}>
-                            <video ref={localVideoref} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: 'block' }}></video>
-                            <Box sx={{ position: 'absolute', bottom: 10, left: 10, backgroundColor: 'rgba(0,0,0,0.6)', padding: '4px 12px', borderRadius: '15px', backdropFilter: 'blur(4px)', maxWidth: '150px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                                <Typography variant="subtitle2" sx={{ color: 'white', fontWeight: 'bold' }}>
-                                    {username || "You"} ({myRole || "connecting..."})
+                            {video ? (
+                                <video
+                                    ref={localVideoref}
+                                    autoPlay
+                                    playsInline
+                                    muted
+                                    style={{
+                                        width: '100%',
+                                        height: '100%',
+                                        objectFit: 'cover',
+                                        transform: 'scaleX(-1)',
+                                        display: 'block'
+                                    }}
+                                />
+                            ) : (
+                                <Box sx={{
+                                    width: '100%',
+                                    height: '100%',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+                                    color: '#94a3b8',
+                                    gap: 1
+                                }}>
+                                    <Avatar sx={{
+                                        width: videos.length === 0 ? 72 : 44,
+                                        height: videos.length === 0 ? 72 : 44,
+                                        bgcolor: '#2563eb',
+                                        fontSize: videos.length === 0 ? '1.8rem' : '1.1rem',
+                                        fontWeight: 700
+                                    }}>
+                                        {(username || "You").charAt(0).toUpperCase()}
+                                    </Avatar>
+                                    {videos.length === 0 && (
+                                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
+                                            Camera is off
+                                        </Typography>
+                                    )}
+                                </Box>
+                            )}
+
+                            {/* Self Label Pill */}
+                            <Box sx={{
+                                position: 'absolute',
+                                top: videos.length === 0 ? { xs: 12, sm: 16 } : 'auto',
+                                bottom: videos.length === 0 ? 'auto' : 6,
+                                left: videos.length === 0 ? { xs: 12, sm: 16 } : 6,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.6,
+                                backgroundColor: 'rgba(15, 23, 42, 0.78)',
+                                backdropFilter: 'blur(12px)',
+                                WebkitBackdropFilter: 'blur(12px)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                padding: videos.length === 0 ? '4px 10px' : '2px 6px',
+                                borderRadius: '6px',
+                                zIndex: 15,
+                                maxWidth: videos.length === 0 ? '200px' : { xs: '84px', sm: '130px' },
+                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)'
+                            }}>
+                                <Box sx={{
+                                    width: 6,
+                                    height: 6,
+                                    borderRadius: '50%',
+                                    backgroundColor: audio ? '#22c55e' : '#ef4444',
+                                    boxShadow: audio ? '0 0 6px #22c55e' : '0 0 6px #ef4444',
+                                    flexShrink: 0
+                                }} />
+                                <Typography variant="caption" sx={{
+                                    color: '#f8fafc',
+                                    fontWeight: 600,
+                                    fontSize: videos.length === 0 ? '0.78rem' : '0.68rem',
+                                    textOverflow: 'ellipsis',
+                                    overflow: 'hidden',
+                                    whiteSpace: 'nowrap'
+                                }}>
+                                    {username || "You"} {myRole ? `(${myRole})` : ""}
                                 </Typography>
                             </Box>
                         </Paper>
 
                         {/* Remote Videos */}
-                        {videos.map((video) => (
-                            <RemoteVideo key={video.socketId} video={video} totalVideos={videos.length} audioOutputDevice={selectedAudioOutputDevice} details={peerDetails[video.socketId]} />
+                        {videos.map((v) => (
+                            <RemoteVideo
+                                key={v.socketId}
+                                video={v}
+                                totalVideos={videos.length}
+                                audioOutputDevice={selectedAudioOutputDevice}
+                                details={peerDetails[v.socketId]}
+                                masterVolume={masterVolume}
+                                masterMuted={masterMuted}
+                            />
                         ))}
                     </Box>
 
-                    {/* Floating Controls */}
+                    {/* Redesigned Floating Control Dock */}
                     <Box sx={{
                         position: 'fixed',
-                        bottom: 30,
+                        bottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
                         left: '50%',
                         transform: 'translateX(-50%)',
-                        backgroundColor: 'rgba(30, 41, 59, 0.75)',
-                        backdropFilter: 'blur(16px)',
-                        WebkitBackdropFilter: 'blur(16px)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        borderRadius: '50px',
-                        padding: '12px 32px',
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        backdropFilter: 'blur(20px)',
+                        WebkitBackdropFilter: 'blur(20px)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        borderRadius: '40px',
+                        padding: { xs: '4px 8px', sm: '8px 18px' },
                         display: 'flex',
-                        gap: 2.5,
-                        boxShadow: '0 16px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
-                        zIndex: 1000
+                        alignItems: 'center',
+                        gap: { xs: 0.6, sm: 1.2 },
+                        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+                        zIndex: 100,
+                        maxWidth: 'calc(100vw - 16px)'
                     }}>
-                        <IconButton onClick={handleVideo} sx={{ color: 'white', backgroundColor: video ? 'rgba(255,255,255,0.08)' : '#ef4444', '&:hover': { backgroundColor: video ? 'rgba(255,255,255,0.15)' : '#dc2626' } }}>
-                            {(video === true) ? <VideocamIcon /> : <VideocamOffIcon />}
-                        </IconButton>
+                        {/* Camera Toggle */}
+                        <Tooltip title={video ? "Turn off camera (Ctrl+E)" : "Turn on camera (Ctrl+E)"}>
+                            <IconButton
+                                aria-label="Toggle camera"
+                                onClick={handleVideo}
+                                sx={{
+                                    width: { xs: 36, sm: 44 },
+                                    height: { xs: 36, sm: 44 },
+                                    color: 'white',
+                                    backgroundColor: video ? 'rgba(255, 255, 255, 0.08)' : '#dc2626',
+                                    transition: 'all 0.2s ease',
+                                    '&:hover': {
+                                        backgroundColor: video ? 'rgba(255, 255, 255, 0.16)' : '#b91c1c',
+                                        transform: 'translateY(-1px)'
+                                    }
+                                }}
+                            >
+                                {video ? <VideocamIcon sx={{ fontSize: { xs: 18, sm: 22 } }} /> : <VideocamOffIcon sx={{ fontSize: { xs: 18, sm: 22 } }} />}
+                            </IconButton>
+                        </Tooltip>
 
-                        <IconButton onClick={handleAudio} sx={{ color: 'white', backgroundColor: audio ? 'rgba(255,255,255,0.08)' : '#ef4444', '&:hover': { backgroundColor: audio ? 'rgba(255,255,255,0.15)' : '#dc2626' } }}>
-                            {audio === true ? <MicIcon /> : <MicOffIcon />}
-                        </IconButton>
+                        {/* Microphone Toggle */}
+                        <Tooltip title={audio ? "Mute microphone (Ctrl+D)" : "Unmute microphone (Ctrl+D)"}>
+                            <IconButton
+                                aria-label="Toggle microphone"
+                                onClick={handleAudio}
+                                sx={{
+                                    width: { xs: 36, sm: 44 },
+                                    height: { xs: 36, sm: 44 },
+                                    color: 'white',
+                                    backgroundColor: audio ? 'rgba(255, 255, 255, 0.08)' : '#dc2626',
+                                    transition: 'all 0.2s ease',
+                                    '&:hover': {
+                                        backgroundColor: audio ? 'rgba(255, 255, 255, 0.16)' : '#b91c1c',
+                                        transform: 'translateY(-1px)'
+                                    }
+                                }}
+                            >
+                                {audio ? <MicIcon sx={{ fontSize: { xs: 18, sm: 22 } }} /> : <MicOffIcon sx={{ fontSize: { xs: 18, sm: 22 } }} />}
+                            </IconButton>
+                        </Tooltip>
 
-                        <IconButton onClick={handleScreen} sx={{ color: 'white', backgroundColor: screen ? '#3b82f6' : 'rgba(255,255,255,0.08)', '&:hover': { backgroundColor: screen ? '#2563eb' : 'rgba(255,255,255,0.15)' } }}>
-                            {screen === true ? <ScreenShareIcon /> : <StopScreenShareIcon />}
-                        </IconButton>
+                        {/* Screen Share Toggle */}
+                        <Tooltip title={screen ? "Stop sharing screen" : "Share screen"}>
+                            <IconButton
+                                aria-label="Share screen"
+                                onClick={handleScreen}
+                                sx={{
+                                    width: { xs: 36, sm: 44 },
+                                    height: { xs: 36, sm: 44 },
+                                    color: 'white',
+                                    backgroundColor: screen ? '#2563eb' : 'rgba(255, 255, 255, 0.08)',
+                                    transition: 'all 0.2s ease',
+                                    '&:hover': {
+                                        backgroundColor: screen ? '#1d4ed8' : 'rgba(255, 255, 255, 0.16)',
+                                        transform: 'translateY(-1px)'
+                                    }
+                                }}
+                            >
+                                {screen ? <StopScreenShareIcon sx={{ fontSize: { xs: 18, sm: 22 } }} /> : <ScreenShareIcon sx={{ fontSize: { xs: 18, sm: 22 } }} />}
+                            </IconButton>
+                        </Tooltip>
 
-                        <IconButton onClick={() => setSettingsOpen(true)} sx={{ color: 'white', backgroundColor: 'rgba(255,255,255,0.08)', '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' } }}>
-                            <SettingsIcon />
-                        </IconButton>
+                        {/* Speaker / Master Volume Controller */}
+                        <Box className="volume-popover-container" sx={{ position: 'relative' }}>
+                            <Tooltip title="Audio output volume">
+                                <IconButton
+                                    aria-label="Adjust audio volume"
+                                    onClick={() => setShowVolumePopup(!showVolumePopup)}
+                                    sx={{
+                                        width: { xs: 36, sm: 44 },
+                                        height: { xs: 36, sm: 44 },
+                                        color: 'white',
+                                        backgroundColor: showVolumePopup ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                                        border: showVolumePopup ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid transparent',
+                                        transition: 'all 0.2s ease',
+                                        '&:hover': {
+                                            backgroundColor: 'rgba(255, 255, 255, 0.16)',
+                                            transform: 'translateY(-1px)'
+                                        }
+                                    }}
+                                >
+                                    {masterMuted || masterVolume === 0 ? <VolumeOffIcon sx={{ fontSize: { xs: 18, sm: 22 } }} /> : <VolumeUpIcon sx={{ fontSize: { xs: 18, sm: 22 } }} />}
+                                </IconButton>
+                            </Tooltip>
 
-            {/* Device Settings Dialog */}
-            <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} PaperProps={{ sx: { backgroundColor: '#1e293b', color: 'white', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.1)' } }}>
-                <DialogTitle sx={{ fontWeight: 'bold' }}>Device Settings</DialogTitle>
-                <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: '350px', pt: 2 }}>
-                    
+                            {/* Upward Audio Volume Popup (Stacking zIndex: 300, above control bar) */}
+                            <AnimatePresence>
+                                {showVolumePopup && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                                        transition={{ duration: 0.15 }}
+                                        style={{
+                                            position: 'absolute',
+                                            bottom: '50px',
+                                            left: '50%',
+                                            transform: 'translateX(-50%)',
+                                            zIndex: 300
+                                        }}
+                                    >
+                                        <Paper
+                                            elevation={16}
+                                            sx={{
+                                                p: 2,
+                                                width: { xs: 195, sm: 220 },
+                                                backgroundColor: 'rgba(15, 23, 42, 0.96)',
+                                                backdropFilter: 'blur(20px)',
+                                                border: '1px solid rgba(255, 255, 255, 0.15)',
+                                                borderRadius: '16px',
+                                                boxShadow: '0 16px 40px rgba(0, 0, 0, 0.75)'
+                                            }}
+                                        >
+                                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                                                <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 600 }}>Speaker Volume</Typography>
+                                                <Typography variant="caption" sx={{ color: '#f8fafc', fontWeight: 700 }}>
+                                                    {masterMuted ? "Muted" : `${Math.round(masterVolume * 100)}%`}
+                                                </Typography>
+                                            </Box>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <IconButton
+                                                    size="small"
+                                                    aria-label={masterMuted ? "Unmute speaker" : "Mute speaker"}
+                                                    onClick={() => setMasterMuted(!masterMuted)}
+                                                    sx={{ color: masterMuted ? '#f87171' : '#94a3b8', p: 0.5 }}
+                                                >
+                                                    {masterMuted ? <VolumeOffIcon fontSize="small" /> : <VolumeUpIcon fontSize="small" />}
+                                                </IconButton>
+                                                <Slider
+                                                    size="small"
+                                                    value={masterMuted ? 0 : masterVolume}
+                                                    min={0}
+                                                    max={1}
+                                                    step={0.05}
+                                                    onChange={(e, val) => {
+                                                        setMasterVolume(val);
+                                                        if (val > 0 && masterMuted) setMasterMuted(false);
+                                                        if (val === 0 && !masterMuted) setMasterMuted(true);
+                                                    }}
+                                                    sx={{ color: '#3b82f6' }}
+                                                />
+                                            </Box>
+                                        </Paper>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </Box>
+
+                        {/* Settings Button */}
+                        <Tooltip title="Device settings">
+                            <IconButton
+                                aria-label="Open settings"
+                                onClick={() => setSettingsOpen(true)}
+                                sx={{
+                                    width: { xs: 36, sm: 44 },
+                                    height: { xs: 36, sm: 44 },
+                                    color: 'white',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                                    transition: 'all 0.2s ease',
+                                    '&:hover': {
+                                        backgroundColor: 'rgba(255, 255, 255, 0.16)',
+                                        transform: 'translateY(-1px)'
+                                    }
+                                }}
+                            >
+                                <SettingsIcon sx={{ fontSize: { xs: 18, sm: 22 } }} />
+                            </IconButton>
+                        </Tooltip>
+
+                        {/* Divider */}
+                        <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255, 255, 255, 0.12)', height: 22, my: 'auto', display: { xs: 'none', sm: 'block' } }} />
+
+                        {/* End Call Button */}
+                        <Tooltip title="Leave call">
+                            <IconButton
+                                aria-label="Leave call"
+                                onClick={handleEndCall}
+                                sx={{
+                                    width: { xs: 38, sm: 46 },
+                                    height: { xs: 38, sm: 46 },
+                                    color: 'white',
+                                    backgroundColor: '#dc2626',
+                                    transition: 'all 0.2s ease',
+                                    '&:hover': {
+                                        backgroundColor: '#b91c1c',
+                                        transform: 'scale(1.05)'
+                                    }
+                                }}
+                            >
+                                <CallEndIcon sx={{ fontSize: { xs: 19, sm: 23 } }} />
+                            </IconButton>
+                        </Tooltip>
+
+                        {/* Divider */}
+                        <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255, 255, 255, 0.12)', height: 22, my: 'auto', display: { xs: 'none', sm: 'block' } }} />
+
+                        {/* Chat Toggle */}
+                        <Tooltip title="In-call chat">
+                            <IconButton
+                                aria-label="Toggle chat"
+                                onClick={() => {
+                                    setModal(!showModal);
+                                    setNewMessages(0);
+                                }}
+                                sx={{
+                                    width: { xs: 36, sm: 44 },
+                                    height: { xs: 36, sm: 44 },
+                                    color: 'white',
+                                    backgroundColor: showModal ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                                    border: showModal ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid transparent',
+                                    transition: 'all 0.2s ease',
+                                    '&:hover': {
+                                        backgroundColor: showModal ? 'rgba(59, 130, 246, 0.35)' : 'rgba(255, 255, 255, 0.16)',
+                                        transform: 'translateY(-1px)'
+                                    }
+                                }}
+                            >
+                                <Badge badgeContent={newMessages} max={99} color="primary">
+                                    <ChatIcon sx={{ fontSize: { xs: 18, sm: 22 } }} />
+                                </Badge>
+                            </IconButton>
+                        </Tooltip>
+                    </Box>
+
+                    {/* Chat Drawer */}
+                    <Drawer
+                        anchor="right"
+                        open={showModal}
+                        onClose={closeChat}
+                        PaperProps={{
+                            sx: {
+                                width: { xs: '100vw', sm: 360 },
+                                backgroundColor: '#0b0f19',
+                                color: '#f8fafc',
+                                borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+                                boxShadow: '-12px 0 40px rgba(0, 0, 0, 0.7)'
+                            }
+                        }}
+                    >
+                        <Box sx={{
+                            p: { xs: 2, sm: 2.5 },
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))'
+                        }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <ChatIcon sx={{ color: '#3b82f6', fontSize: 20 }} />
+                                    <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#f8fafc' }}>
+                                        In-call messages
+                                    </Typography>
+                                </Box>
+                                <IconButton aria-label="Close chat" onClick={closeChat} sx={{ color: '#94a3b8', '&:hover': { color: '#f8fafc' } }}>
+                                    <CloseIcon sx={{ fontSize: 20 }} />
+                                </IconButton>
+                            </Box>
+
+                            <Box sx={{
+                                backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                                border: '1px solid rgba(255, 255, 255, 0.06)',
+                                borderRadius: '10px',
+                                p: 1.2,
+                                mb: 2
+                            }}>
+                                <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '0.72rem', lineHeight: 1.4, display: 'block' }}>
+                                    Messages are visible only to participants in this call and are deleted when the call ends.
+                                </Typography>
+                            </Box>
+
+                            <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.08)' }} />
+
+                            <Box sx={{
+                                flexGrow: 1,
+                                overflowY: 'auto',
+                                my: 2,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 1.5,
+                                pr: 0.5
+                            }}>
+                                {messages.length !== 0 ? messages.map((item, index) => {
+                                    const isSelf = item.sender === username;
+                                    return (
+                                        <Box
+                                            key={index}
+                                            sx={{
+                                                alignSelf: isSelf ? 'flex-end' : 'flex-start',
+                                                backgroundColor: isSelf ? '#2563eb' : 'rgba(255, 255, 255, 0.06)',
+                                                border: isSelf ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                                                padding: '8px 14px',
+                                                borderRadius: isSelf ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
+                                                maxWidth: '82%',
+                                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)'
+                                            }}
+                                        >
+                                            <Typography variant="caption" sx={{
+                                                color: isSelf ? '#bfdbfe' : '#94a3b8',
+                                                fontWeight: 600,
+                                                fontSize: '0.7rem',
+                                                display: 'block',
+                                                mb: 0.2
+                                            }}>
+                                                {isSelf ? "You" : item.sender}
+                                            </Typography>
+                                            <Typography variant="body2" sx={{ color: '#f8fafc', fontSize: '0.86rem', wordBreak: 'break-word' }}>
+                                                {item.data}
+                                            </Typography>
+                                        </Box>
+                                    );
+                                }) : (
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#64748b', gap: 1 }}>
+                                        <ChatIcon sx={{ fontSize: 36, opacity: 0.4 }} />
+                                        <Typography variant="body2" sx={{ color: '#64748b' }}>No messages yet</Typography>
+                                    </Box>
+                                )}
+                            </Box>
+
+                            <Box sx={{ display: 'flex', gap: 1, pt: 1, borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                                <TextField
+                                    value={message}
+                                    onChange={(e) => setMessage(e.target.value)}
+                                    placeholder="Send a message..."
+                                    variant="outlined"
+                                    fullWidth
+                                    size="small"
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            color: 'white',
+                                            borderRadius: '12px',
+                                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                            fontSize: '0.86rem',
+                                            '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.1)' },
+                                            '&:hover fieldset': { borderColor: 'rgba(255, 255, 255, 0.25)' },
+                                            '&.Mui-focused fieldset': { borderColor: '#3b82f6' }
+                                        }
+                                    }}
+                                    onKeyPress={(e) => {
+                                        if (e.key === 'Enter' && message.trim()) {
+                                            sendMessage();
+                                        }
+                                    }}
+                                />
+                                <IconButton
+                                    aria-label="Send message"
+                                    onClick={() => {
+                                        if (message.trim()) sendMessage();
+                                    }}
+                                    disabled={!message.trim()}
+                                    sx={{
+                                        color: 'white',
+                                        backgroundColor: '#2563eb',
+                                        borderRadius: '12px',
+                                        p: 1,
+                                        '&:hover': { backgroundColor: '#1d4ed8' },
+                                        '&.Mui-disabled': { backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#64748b' }
+                                    }}
+                                >
+                                    <SendIcon sx={{ fontSize: 18 }} />
+                                </IconButton>
+                            </Box>
+                        </Box>
+                    </Drawer>
+
+                </Box>
+
+            }
+
+            {/* Device Settings Dialog (Moved to Root) */}
+            <Dialog
+                open={settingsOpen}
+                onClose={() => setSettingsOpen(false)}
+                PaperProps={{
+                    sx: {
+                        backgroundColor: '#0f172a',
+                        color: 'white',
+                        borderRadius: { xs: '20px 20px 0 0', sm: '20px' },
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        boxShadow: '0 24px 60px rgba(0, 0, 0, 0.8)',
+                        minWidth: { xs: '100vw', sm: '420px' },
+                        margin: { xs: 0, sm: '32px' },
+                        position: { xs: 'fixed', sm: 'relative' },
+                        bottom: { xs: 0, sm: 'auto' },
+                        paddingBottom: { xs: 'calc(8px + env(safe-area-inset-bottom, 0px))', sm: 0 }
+                    }
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, letterSpacing: '-0.01em', pb: 1, borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    Device Settings
+                </DialogTitle>
+                <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 3, pb: 1 }}>
                     <TextField
                         select
                         fullWidth
@@ -1138,9 +1855,24 @@ export default function VideoMeetComponent() {
                         label="Camera"
                         value={selectedVideoDevice}
                         onChange={(e) => applyDeviceChanges(e.target.value, selectedAudioInputDevice)}
-                        sx={{ '& .MuiOutlinedInput-root': { color: 'white', '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' } }, '& .MuiInputLabel-root': { color: '#94a3b8', backgroundColor: '#1e293b', px: 0.5 }, '& .MuiSvgIcon-root': { color: 'white' } }}
+                        sx={{
+                            '& .MuiOutlinedInput-root': {
+                                color: 'white',
+                                borderRadius: '12px',
+                                backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                                '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' },
+                                '&:hover fieldset': { borderColor: 'rgba(255, 255, 255, 0.3)' },
+                                '&.Mui-focused fieldset': { borderColor: '#3b82f6' }
+                            },
+                            '& .MuiInputLabel-root': { color: '#94a3b8' },
+                            '& .MuiSvgIcon-root': { color: '#94a3b8' }
+                        }}
                     >
-                        {videoDevices.map(d => <MenuItem key={d.deviceId} value={d.deviceId}>{d.label || `Camera ${videoDevices.indexOf(d) + 1}`}</MenuItem>)}
+                        {videoDevices.map(d => (
+                            <MenuItem key={d.deviceId} value={d.deviceId}>
+                                {d.label || `Camera ${videoDevices.indexOf(d) + 1}`}
+                            </MenuItem>
+                        ))}
                     </TextField>
 
                     <TextField
@@ -1150,9 +1882,24 @@ export default function VideoMeetComponent() {
                         label="Microphone"
                         value={selectedAudioInputDevice}
                         onChange={(e) => applyDeviceChanges(selectedVideoDevice, e.target.value)}
-                        sx={{ '& .MuiOutlinedInput-root': { color: 'white', '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' } }, '& .MuiInputLabel-root': { color: '#94a3b8', backgroundColor: '#1e293b', px: 0.5 }, '& .MuiSvgIcon-root': { color: 'white' } }}
+                        sx={{
+                            '& .MuiOutlinedInput-root': {
+                                color: 'white',
+                                borderRadius: '12px',
+                                backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                                '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' },
+                                '&:hover fieldset': { borderColor: 'rgba(255, 255, 255, 0.3)' },
+                                '&.Mui-focused fieldset': { borderColor: '#3b82f6' }
+                            },
+                            '& .MuiInputLabel-root': { color: '#94a3b8' },
+                            '& .MuiSvgIcon-root': { color: '#94a3b8' }
+                        }}
                     >
-                        {audioInputDevices.map(d => <MenuItem key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${audioInputDevices.indexOf(d) + 1}`}</MenuItem>)}
+                        {audioInputDevices.map(d => (
+                            <MenuItem key={d.deviceId} value={d.deviceId}>
+                                {d.label || `Microphone ${audioInputDevices.indexOf(d) + 1}`}
+                            </MenuItem>
+                        ))}
                     </TextField>
 
                     {typeof HTMLMediaElement.prototype.setSinkId === 'function' && (
@@ -1163,108 +1910,46 @@ export default function VideoMeetComponent() {
                             label="Speaker"
                             value={selectedAudioOutputDevice}
                             onChange={(e) => setSelectedAudioOutputDevice(e.target.value)}
-                            sx={{ '& .MuiOutlinedInput-root': { color: 'white', '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' } }, '& .MuiInputLabel-root': { color: '#94a3b8', backgroundColor: '#1e293b', px: 0.5 }, '& .MuiSvgIcon-root': { color: 'white' } }}
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    color: 'white',
+                                    borderRadius: '12px',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                                    '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' },
+                                    '&:hover fieldset': { borderColor: 'rgba(255, 255, 255, 0.3)' },
+                                    '&.Mui-focused fieldset': { borderColor: '#3b82f6' }
+                                },
+                                '& .MuiInputLabel-root': { color: '#94a3b8' },
+                                '& .MuiSvgIcon-root': { color: '#94a3b8' }
+                            }}
                         >
-                            {audioOutputDevices.map(d => <MenuItem key={d.deviceId} value={d.deviceId}>{d.label || `Speaker ${audioOutputDevices.indexOf(d) + 1}`}</MenuItem>)}
+                            {audioOutputDevices.map(d => (
+                                <MenuItem key={d.deviceId} value={d.deviceId}>
+                                    {d.label || `Speaker ${audioOutputDevices.indexOf(d) + 1}`}
+                                </MenuItem>
+                            ))}
                         </TextField>
                     )}
-
                 </DialogContent>
-                <DialogActions sx={{ padding: '20px' }}>
-                    <Button variant="contained" onClick={() => setSettingsOpen(false)} sx={{ backgroundColor: '#ff9839', color: 'white', '&:hover': { backgroundColor: '#e08933' }, borderRadius: '20px', padding: '6px 20px' }}>Done</Button>
-                </DialogActions>
-            </Dialog>
-
-                        <IconButton onClick={handleEndCall} sx={{ color: 'white', backgroundColor: '#ef4444', '&:hover': { backgroundColor: '#dc2626' } }}>
-                            <CallEndIcon />
-                        </IconButton>
-
-                        <IconButton onClick={() => {
-                            setModal(!showModal);
-                            setNewMessages(0);
-                        }} sx={{ color: 'white', backgroundColor: 'rgba(255,255,255,0.08)', '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' } }}>
-                            <Badge badgeContent={newMessages} max={99} color="secondary">
-                                <ChatIcon />
-                            </Badge>
-                        </IconButton>
-
-
-                    </Box>
-
-
-                    {/* Chat Drawer */}
-                    <Drawer
-                        anchor="right"
-                        open={showModal}
-                        onClose={closeChat}
-                        PaperProps={{
-                            sx: {
-                                width: 350,
-                                backgroundColor: 'rgba(30, 30, 30, 0.95)',
-                                backdropFilter: 'blur(10px)',
-                                color: 'white',
-                                borderLeft: '1px solid rgba(255,255,255,0.1)'
-                            }
+                <DialogActions sx={{ padding: '16px 24px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <Button
+                        variant="contained"
+                        onClick={() => setSettingsOpen(false)}
+                        sx={{
+                            backgroundColor: '#2563eb',
+                            color: 'white',
+                            fontWeight: 600,
+                            borderRadius: '10px',
+                            px: 3,
+                            py: 0.8,
+                            textTransform: 'none',
+                            '&:hover': { backgroundColor: '#1d4ed8' }
                         }}
                     >
-                        <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Chat Room</Typography>
-                                <IconButton onClick={closeChat} sx={{ color: 'white' }}>
-                                    <CloseIcon />
-                                </IconButton>
-                            </Box>
-                            <Divider sx={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
-
-                            <Box sx={{ flexGrow: 1, overflowY: 'auto', mt: 2, mb: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                {messages.length !== 0 ? messages.map((item, index) => (
-                                    <Box key={index} sx={{
-                                        alignSelf: item.sender === username ? 'flex-end' : 'flex-start',
-                                        backgroundColor: item.sender === username ? '#1976d2' : 'rgba(255,255,255,0.1)',
-                                        padding: '10px 15px',
-                                        borderRadius: '15px',
-                                        maxWidth: '80%'
-                                    }}>
-                                        <Typography variant="caption" sx={{ color: '#aaa', display: 'block', mb: 0.5 }}>{item.sender}</Typography>
-                                        <Typography variant="body1">{item.data}</Typography>
-                                    </Box>
-                                )) : <Typography sx={{ textAlign: 'center', color: '#666', mt: 5 }}>No messages yet</Typography>}
-                            </Box>
-
-                            <Box sx={{ display: 'flex', gap: 1 }}>
-                                <TextField
-                                    value={message}
-                                    onChange={(e) => setMessage(e.target.value)}
-                                    placeholder="Type a message..."
-                                    variant="outlined"
-                                    fullWidth
-                                    size="small"
-                                    sx={{
-                                        '& .MuiOutlinedInput-root': {
-                                            color: 'white',
-                                            borderRadius: '20px',
-                                            backgroundColor: 'rgba(255,255,255,0.05)',
-                                            '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' },
-                                            '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-                                            '&.Mui-focused fieldset': { borderColor: '#1976d2' }
-                                        }
-                                    }}
-                                    onKeyPress={(e) => {
-                                        if (e.key === 'Enter') {
-                                            sendMessage();
-                                        }
-                                    }}
-                                />
-                                <IconButton onClick={sendMessage} sx={{ color: '#1976d2', backgroundColor: 'rgba(255,255,255,0.1)' }}>
-                                    <SendIcon />
-                                </IconButton>
-                            </Box>
-                        </Box>
-                    </Drawer>
-
-                </Box>
-
-            }
+                        Done
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             {/* End Call Confirmation Dialog */}
             <Dialog
@@ -1274,42 +1959,53 @@ export default function VideoMeetComponent() {
                 aria-describedby="alert-dialog-description"
                 PaperProps={{
                     sx: {
-                        backgroundColor: '#1e1e1e',
+                        backgroundColor: '#0f172a',
                         color: 'white',
-                        borderRadius: '15px',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        minWidth: '300px'
+                        borderRadius: '18px',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        boxShadow: '0 24px 60px rgba(0, 0, 0, 0.8)',
+                        minWidth: { xs: '85vw', sm: '340px' }
                     }
                 }}
             >
-                <DialogTitle id="alert-dialog-title" sx={{ fontWeight: 'bold' }}>
-                    {"End Call?"}
+                <DialogTitle id="alert-dialog-title" sx={{ fontWeight: 800, pb: 1 }}>
+                    {"Leave Meeting?"}
                 </DialogTitle>
                 <DialogContent>
-                    <DialogContentText id="alert-dialog-description" sx={{ color: '#aaa' }}>
-                        Are you sure you want to leave the meeting?
+                    <DialogContentText id="alert-dialog-description" sx={{ color: '#94a3b8', fontSize: '0.9rem' }}>
+                        Are you sure you want to disconnect and leave the meeting?
                     </DialogContentText>
                 </DialogContent>
-                <DialogActions sx={{ padding: '20px' }}>
+                <DialogActions sx={{ padding: '16px 20px', gap: 1 }}>
                     <Button
                         onClick={() => setShowEndCallModal(false)}
-                        sx={{ color: '#aaa', '&:hover': { color: 'white' } }}
+                        sx={{
+                            color: '#94a3b8',
+                            borderRadius: '10px',
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            px: 2,
+                            '&:hover': { color: '#f8fafc', backgroundColor: 'rgba(255, 255, 255, 0.05)' }
+                        }}
                     >
-                        Cancel
+                        Stay
                     </Button>
                     <Button
                         onClick={confirmEndCall}
                         variant="contained"
                         autoFocus
                         sx={{
-                            backgroundColor: '#f44336',
+                            backgroundColor: '#dc2626',
                             color: 'white',
-                            '&:hover': { backgroundColor: '#d32f2f' },
-                            borderRadius: '20px',
-                            padding: '6px 20px'
+                            fontWeight: 600,
+                            borderRadius: '10px',
+                            textTransform: 'none',
+                            px: 2.5,
+                            py: 0.8,
+                            '&:hover': { backgroundColor: '#b91c1c' }
                         }}
                     >
-                        End Call
+                        Leave Call
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -1317,17 +2013,51 @@ export default function VideoMeetComponent() {
             {/* Admin Join Request Dialog */}
             <Dialog 
                 open={joinRequests.length > 0} 
-                PaperProps={{ sx: { backgroundColor: '#1e1e1e', color: 'white', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.1)' } }}
+                PaperProps={{
+                    sx: {
+                        backgroundColor: '#0f172a',
+                        color: 'white',
+                        borderRadius: '18px',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        boxShadow: '0 24px 60px rgba(0, 0, 0, 0.8)',
+                        minWidth: { xs: '85vw', sm: '360px' }
+                    }
+                }}
             >
-                <DialogTitle sx={{ fontWeight: 'bold' }}>Guest Admittance</DialogTitle>
+                <DialogTitle sx={{ fontWeight: 800 }}>Guest Admittance</DialogTitle>
                 <DialogContent>
-                    <DialogContentText sx={{ color: '#ccc' }}>
-                        <strong style={{ color: '#fff' }}>{joinRequests[0]?.username}</strong> is waiting in the lobby to join the meeting.
+                    <DialogContentText sx={{ color: '#94a3b8' }}>
+                        <strong style={{ color: '#60a5fa' }}>{joinRequests[0]?.username}</strong> is waiting in the lobby to join the meeting.
                     </DialogContentText>
                 </DialogContent>
-                <DialogActions sx={{ padding: '20px' }}>
-                    <Button onClick={() => handleJoinResponse(joinRequests[0].socketId, false)} sx={{ color: '#f44336' }}>Deny Entry</Button>
-                    <Button onClick={() => handleJoinResponse(joinRequests[0].socketId, true)} variant="contained" sx={{ backgroundColor: '#ff9839', '&:hover': { backgroundColor: '#e08933' } }}>Admit</Button>
+                <DialogActions sx={{ padding: '16px 20px', gap: 1 }}>
+                    <Button
+                        onClick={() => handleJoinResponse(joinRequests[0].socketId, false)}
+                        sx={{
+                            color: '#f87171',
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            borderRadius: '10px',
+                            '&:hover': { backgroundColor: 'rgba(239, 68, 68, 0.1)' }
+                        }}
+                    >
+                        Deny Entry
+                    </Button>
+                    <Button
+                        onClick={() => handleJoinResponse(joinRequests[0].socketId, true)}
+                        variant="contained"
+                        sx={{
+                            backgroundColor: '#2563eb',
+                            color: 'white',
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            borderRadius: '10px',
+                            px: 2.5,
+                            '&:hover': { backgroundColor: '#1d4ed8' }
+                        }}
+                    >
+                        Admit
+                    </Button>
                 </DialogActions>
             </Dialog>
 

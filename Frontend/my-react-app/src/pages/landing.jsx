@@ -71,44 +71,54 @@ export default function LandingPage() {
 
 
     const featureCards = [
-        { icon: <BoltIcon sx={{ fontSize: 40, color: '#60a5fa' }} />, title: "Instant", desc: "No sign-up for guests" },
-        { icon: <SecurityIcon sx={{ fontSize: 40, color: '#60a5fa' }} />, title: "Secure", desc: "End-to-end encrypted" },
-        { icon: <HdIcon sx={{ fontSize: 40, color: '#60a5fa' }} />, title: "Start Now", desc: "Crystal clear call" },
+        { icon: <BoltIcon sx={{ fontSize: 22, color: '#38bdf8' }} />, title: "Instant", desc: "No sign-up for guests" },
+        { icon: <SecurityIcon sx={{ fontSize: 22, color: '#38bdf8' }} />, title: "Secure", desc: "End-to-end encrypted" },
+        { icon: <HdIcon sx={{ fontSize: 22, color: '#38bdf8' }} />, title: "Start Now", desc: "Crystal clear call" },
     ];
 
     return (
         <Box sx={{
-            minHeight: '100vh',
-            background: 'radial-gradient(circle at 50% 0%, #1e293b, #0f172a 80%)',
+            minHeight: '100dvh',
+            height: { md: '100vh' },
+            background: 'radial-gradient(circle at 50% 0%, #172033, #0b0f19 85%)',
             display: 'flex',
             flexDirection: 'column',
+            justifyContent: { md: 'space-between' },
             color: '#f8fafc',
             overflowX: 'hidden'
         }}>
             {/* Navbar */}
             <motion.div
-                initial={{ y: -100, opacity: 0 }}
+                initial={{ y: -40, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
             >
-                <AppBar position="static" color="transparent" elevation={0} sx={{ pt: 2, pb: 2 }}>
+                <AppBar position="static" color="transparent" elevation={0} sx={{ pt: { xs: 1.5, md: 2 }, pb: 1 }}>
                     <Container maxWidth="xl">
-                        <Toolbar disableGutters sx={{ justifyContent: 'space-between' }}>
+                        <Toolbar disableGutters sx={{ justifyContent: 'space-between', minHeight: { xs: '48px', md: '56px' } }}>
                             <Box
                                 onClick={() => router("/")}
-                                sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }}
+                                sx={{ display: 'flex', alignItems: 'center', gap: 1.2, cursor: 'pointer' }}
                             >
-                                <motion.div whileHover={{ scale: 1.1, rotate: 10 }}>
-                                    <VideocamIcon sx={{ fontSize: 40, color: '#60a5fa' }} />
-                                </motion.div>
+                                <Box sx={{
+                                    width: 34,
+                                    height: 34,
+                                    borderRadius: '10px',
+                                    background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    boxShadow: '0 0 16px rgba(37, 99, 235, 0.35)'
+                                }}>
+                                    <VideocamIcon sx={{ fontSize: 20, color: '#fff' }} />
+                                </Box>
                                 <Typography
-                                    variant="h5"
+                                    variant="h6"
                                     noWrap
                                     sx={{
-                                        mr: 2,
-                                        display: { xs: 'none', md: 'flex' },
-                                        fontWeight: 800,
-                                        letterSpacing: '.05rem',
+                                        fontWeight: 700,
+                                        letterSpacing: '-0.01em',
+                                        fontSize: { xs: '1rem', md: '1.15rem' },
                                         color: '#f8fafc',
                                         textDecoration: 'none',
                                     }}
@@ -117,51 +127,41 @@ export default function LandingPage() {
                                 </Typography>
                             </Box>
 
-                            <Box sx={{ display: 'flex', gap: 2 }}>
-                                <Button
-                                    onClick={handleJoinGuest}
-                                    startIcon={<GroupsIcon />}
-                                    sx={{
-                                        color: '#e2e8f0',
-                                        textTransform: 'none',
-                                        fontSize: '1rem',
-                                        fontWeight: 500,
-                                        '&:hover': { color: '#60a5fa', backgroundColor: 'rgba(255,255,255,0.05)' },
-                                        borderRadius: '20px',
-                                        px: 2
-                                    }}
-                                >
-                                    Join as Guest
-                                </Button>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
                                 <Button
                                     onClick={() => router("/auth", { state: { action: "register" } })}
                                     sx={{
-                                        color: '#e2e8f0',
+                                        color: '#94a3b8',
                                         textTransform: 'none',
-                                        fontSize: '1rem',
+                                        fontSize: '0.92rem',
                                         fontWeight: 500,
-                                        '&:hover': { color: '#60a5fa', backgroundColor: 'rgba(255,255,255,0.05)' },
-                                        borderRadius: '20px',
-                                        px: 2
+                                        borderRadius: '10px',
+                                        px: { xs: 1.2, sm: 2 },
+                                        py: 0.6,
+                                        transition: 'all 0.2s ease',
+                                        '&:hover': { color: '#f8fafc', backgroundColor: 'rgba(255,255,255,0.06)' }
                                     }}
                                 >
                                     Register
                                 </Button>
-                                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                                     <Button
                                         variant="contained"
                                         onClick={() => router("/auth", { state: { action: "login" } })}
                                         sx={{
-                                            background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                                            background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
                                             color: '#fff',
                                             textTransform: 'none',
-                                            fontSize: '1rem',
-                                            fontWeight: 'bold',
-                                            borderRadius: '25px',
-                                            paddingX: 4,
-                                            boxShadow: '0 4px 14px 0 rgba(59, 130, 246, 0.4)',
+                                            fontSize: '0.92rem',
+                                            fontWeight: 700,
+                                            borderRadius: '20px',
+                                            px: { xs: 2.5, sm: 3 },
+                                            py: 0.7,
+                                            boxShadow: '0 4px 14px rgba(37, 99, 235, 0.4)',
+                                            transition: 'all 0.2s ease',
                                             '&:hover': {
-                                                boxShadow: '0 6px 20px 0 rgba(59, 130, 246, 0.6)'
+                                                background: 'linear-gradient(135deg, #1d4ed8, #1e40af)',
+                                                boxShadow: '0 6px 20px rgba(37, 99, 235, 0.6)'
                                             }
                                         }}
                                     >
@@ -175,133 +175,200 @@ export default function LandingPage() {
             </motion.div>
 
             {/* Main Content */}
-            <Container maxWidth="lg" sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', mt: 4, mb: 4 }}>
-                <Grid container spacing={6} alignItems="center" justifyContent="center">
+            <Container
+                maxWidth="lg"
+                sx={{
+                    flexGrow: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: { xs: 'flex-start', md: 'center' },
+                    alignItems: 'center',
+                    pt: { xs: 'clamp(56px, 8vh, 76px)', md: 1.5 },
+                    pb: { xs: 'clamp(36px, 6vh, 52px)', md: 1.5 },
+                    px: { xs: 2, sm: 3 }
+                }}
+            >
+                <Box sx={{
+                    textAlign: 'center',
+                    width: '100%',
+                    maxWidth: { xs: '420px', sm: '600px', md: '900px' },
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center'
+                }}>
+                    <motion.div
+                        initial={{ y: -20, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ duration: 0.6, delay: 0.15 }}
+                    >
+                        <Typography
+                            variant="h1"
+                            component="h1"
+                            sx={{
+                                fontSize: { xs: '2.15rem', sm: '2.8rem', md: '3.4rem', lg: '3.6rem' },
+                                fontWeight: 800,
+                                lineHeight: { xs: 1.12, md: 1.12 },
+                                letterSpacing: '-0.02em',
+                                mb: { xs: '30px', md: 2 },
+                                background: 'linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%)',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                                filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.5))'
+                            }}
+                        >
+                            Connect with your <Box component="br" sx={{ display: { xs: 'block', sm: 'none' } }} />loved <Box component="br" sx={{ display: { xs: 'block', sm: 'block' } }} />Ones
+                        </Typography>
+                    </motion.div>
 
-                    {/* Text Column */}
-                    <Grid item xs={12} md={10} lg={9}>
-                        <Box sx={{ textAlign: 'center' }}>
-                            <motion.div
-                                initial={{ y: -30, opacity: 0 }}
-                                animate={{ y: 0, opacity: 1 }}
-                                transition={{ duration: 0.8, delay: 0.2 }}
-                            >
-                                <Typography
-                                    variant="h2"
-                                    component="h1"
-                                    fontWeight="900"
-                                    gutterBottom
+                    <motion.div
+                        initial={{ y: -15, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ duration: 0.6, delay: 0.3 }}
+                    >
+                        <Typography
+                            variant="body1"
+                            sx={{
+                                color: '#94a3b8',
+                                fontSize: { xs: '0.96rem', sm: '1.02rem', md: '1.06rem' },
+                                fontWeight: 400,
+                                lineHeight: { xs: 1.6, md: 1.55 },
+                                maxWidth: { xs: '340px', sm: '500px', md: '620px' },
+                                mx: 'auto',
+                                mb: { xs: '32px', md: 3 }
+                            }}
+                        >
+                            Cover any distance with Apna Video Call. Experience high-quality, secure, and seamless video conferencing for free.
+                        </Typography>
+                    </motion.div>
+
+                    {/* Single Primary CTA */}
+                    <motion.div
+                        initial={{ y: 15, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ duration: 0.6, delay: 0.45 }}
+                    >
+                        <Box sx={{ mb: { xs: '14px', md: 1.2 } }}>
+                            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                                <Button
+                                    variant="contained"
+                                    size="large"
+                                    aria-label="Start instant meeting"
+                                    onClick={handleJoinGuest}
                                     sx={{
-                                        fontSize: { xs: '2.5rem', md: '4.5rem' },
-                                        lineHeight: 1.1,
-                                        mb: 3,
-                                        background: 'linear-gradient(to right, #f8fafc, #93c5fd)',
-                                        WebkitBackgroundClip: 'text',
-                                        WebkitTextFillColor: 'transparent',
-                                        filter: 'drop-shadow(0px 4px 8px rgba(0,0,0,0.4))'
+                                        background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                                        color: '#fff',
+                                        padding: { xs: '14px 34px', sm: '13px 36px' },
+                                        fontSize: { xs: '0.94rem', sm: '1rem' },
+                                        fontWeight: 700,
+                                        letterSpacing: '0.02em',
+                                        borderRadius: '30px',
+                                        textTransform: 'uppercase',
+                                        boxShadow: '0 8px 24px rgba(37, 99, 235, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+                                        transition: 'all 0.2s ease',
+                                        '&:hover': {
+                                            background: 'linear-gradient(135deg, #1d4ed8, #1e40af)',
+                                            boxShadow: '0 12px 28px rgba(37, 99, 235, 0.6)'
+                                        }
                                     }}
                                 >
-                                    Connect with your loved Ones
-                                </Typography>
+                                    Start Instant Meeting
+                                </Button>
                             </motion.div>
+                        </Box>
+                    </motion.div>
 
-                            <motion.div
-                                initial={{ y: -20, opacity: 0 }}
-                                animate={{ y: 0, opacity: 1 }}
-                                transition={{ duration: 0.8, delay: 0.4 }}
-                            >
-                                <Typography variant="h5" sx={{ mb: 6, color: '#cbd5e1', fontWeight: 300, lineHeight: 1.6, mx: 'auto', maxWidth: '85%' }}>
-                                    Cover any distance with Apna Video Call. Experience high-quality, secure, and seamless video conferencing for free.
-                                </Typography>
-                            </motion.div>
+                    {/* Supporting Text - Explicit margin-bottom to create clean section separation */}
+                    <Typography
+                        variant="caption"
+                        sx={{
+                            display: 'block',
+                            color: '#64748b',
+                            fontSize: '0.8rem',
+                            fontWeight: 500,
+                            letterSpacing: '0.02em',
+                            mb: { xs: '44px', md: 3.5 }
+                        }}
+                    >
+                        No download required • Start in seconds
+                    </Typography>
 
-                            <motion.div
-                                initial={{ y: 30, opacity: 0 }}
-                                animate={{ y: 0, opacity: 1 }}
-                                transition={{ duration: 0.8, delay: 0.6 }}
+                    {/* Feature Cards (2 columns on mobile with 3rd card centered, 3-col on desktop) */}
+                    <Box sx={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        justifyContent: 'center',
+                        gap: { xs: '12px', sm: '16px', md: '20px' },
+                        maxWidth: '840px',
+                        mx: 'auto',
+                        width: '100%'
+                    }}>
+                        {featureCards.map((card, index) => (
+                            <Box
+                                key={index}
+                                sx={{
+                                    flex: { xs: '0 0 calc(50% - 6px)', sm: '0 0 calc(33.333% - 14px)' },
+                                    width: { xs: 'calc(50% - 6px)', sm: 'calc(33.333% - 14px)' },
+                                    maxWidth: { xs: 'calc(50% - 6px)', sm: 'calc(33.333% - 14px)' },
+                                    display: 'flex'
+                                }}
                             >
-                                <Box sx={{ display: 'flex', gap: 3, justifyContent: 'center', mb: 8, flexWrap: 'wrap' }}>
-                                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                        <Button
-                                            variant="contained"
-                                            size="large"
-                                            onClick={handleJoinGuest}
-                                            sx={{
-                                                background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
-                                                color: '#fff',
-                                                padding: '14px 42px',
-                                                fontSize: '1.2rem',
-                                                fontWeight: 'bold',
-                                                borderRadius: '30px',
-                                                boxShadow: '0 10px 20px rgba(59, 130, 246, 0.3)',
-                                            }}
-                                        >
-                                            Get Started
-                                        </Button>
-                                    </motion.div>
-                                    <Button
-                                        variant="outlined"
-                                        size="large"
-                                        onClick={() => router("/auth", { state: { action: "register" } })}
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.6 + (index * 0.1) }}
+                                    style={{ width: '100%', display: 'flex' }}
+                                >
+                                    <Paper
+                                        elevation={0}
                                         sx={{
-                                            color: '#e2e8f0',
-                                            borderColor: 'rgba(255,255,255,0.2)',
-                                            padding: '14px 42px',
-                                            fontSize: '1.2rem',
-                                            borderRadius: '30px',
-                                            borderWidth: '2px',
+                                            width: '100%',
+                                            py: { xs: '18px', sm: '20px' },
+                                            px: { xs: '16px', sm: '18px' },
+                                            background: 'rgba(15, 23, 42, 0.7)',
+                                            backdropFilter: 'blur(12px)',
+                                            WebkitBackdropFilter: 'blur(12px)',
+                                            borderRadius: '16px',
+                                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                                            textAlign: 'center',
+                                            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+                                            transition: 'all 0.25s ease',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
                                             '&:hover': {
-                                                borderColor: '#60a5fa',
-                                                backgroundColor: 'rgba(96,165,250,0.1)',
-                                                borderWidth: '2px',
+                                                transform: 'translateY(-3px)',
+                                                background: 'rgba(255, 255, 255, 0.05)',
+                                                borderColor: 'rgba(56, 189, 248, 0.3)',
+                                                boxShadow: '0 12px 30px rgba(37, 99, 235, 0.18)'
                                             }
                                         }}
                                     >
-                                        Learn More
-                                    </Button>
-                                </Box>
-                            </motion.div>
-
-                            {/* Feature Cards */}
-                            <Grid container spacing={4} justifyContent="center" sx={{ mt: 2 }}>
-                                {featureCards.map((card, index) => (
-                                    <Grid item key={index} xs={12} sm={4}>
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 30 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: 0.8 + (index * 0.15) }}
-                                        >
-                                            <Paper sx={{
-                                                p: 3,
-                                                background: 'rgba(255, 255, 255, 0.03)',
-                                                backdropFilter: 'blur(10px)',
-                                                borderRadius: '20px',
-                                                border: '1px solid rgba(255, 255, 255, 0.05)',
-                                                textAlign: 'center',
-                                                boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-                                                transition: 'all 0.3s ease',
-                                                '&:hover': { 
-                                                    transform: 'translateY(-8px)',
-                                                    background: 'rgba(255, 255, 255, 0.05)',
-                                                    borderColor: 'rgba(96, 165, 250, 0.3)',
-                                                    boxShadow: '0 12px 40px rgba(59, 130, 246, 0.15)'
-                                                }
-                                            }}>
-                                                <motion.div whileHover={{ rotate: 10, scale: 1.1 }} transition={{ type: "spring", stiffness: 300 }}>
-                                                    {card.icon}
-                                                </motion.div>
-                                                <Typography variant="h6" sx={{ fontWeight: 'bold', mt: 1.5, color: '#f8fafc' }}>{card.title}</Typography>
-                                                <Typography variant="body2" sx={{ color: '#94a3b8', mt: 0.5 }}>{card.desc}</Typography>
-                                            </Paper>
-                                        </motion.div>
-                                    </Grid>
-                                ))}
-                            </Grid>
-                        </Box>
-                    </Grid>
-
-                </Grid>
-
+                                        <Box sx={{
+                                            width: { xs: 38, sm: 40 },
+                                            height: { xs: 38, sm: 40 },
+                                            borderRadius: '10px',
+                                            background: 'rgba(37, 99, 235, 0.15)',
+                                            border: '1px solid rgba(59, 130, 246, 0.25)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            mb: { xs: '10px', sm: '12px' }
+                                        }}>
+                                            {card.icon}
+                                        </Box>
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#f8fafc', fontSize: { xs: '0.9rem', sm: '0.92rem' }, mb: { xs: '7px', sm: '8px' } }}>
+                                            {card.title}
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ color: '#94a3b8', display: 'block', fontSize: { xs: '0.76rem', sm: '0.78rem' }, lineHeight: 1.4 }}>
+                                            {card.desc}
+                                        </Typography>
+                                    </Paper>
+                                </motion.div>
+                            </Box>
+                        ))}
+                    </Box>
+                </Box>
             </Container>
 
             {/* Guest Join Modal */}
@@ -316,12 +383,13 @@ export default function LandingPage() {
                     top: '50%',
                     left: '50%',
                     transform: 'translate(-50%, -50%)',
-                    width: 420,
+                    width: { xs: 'calc(100vw - 32px)', sm: 420 },
+                    maxWidth: 420,
                     bgcolor: '#1e293b',
                     borderRadius: '24px',
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
                     border: '1px solid rgba(255,255,255,0.1)',
-                    p: 4,
+                    p: { xs: 3, sm: 4 },
                     color: '#f8fafc'
                 }}>
                     {modalStep === 0 && (
